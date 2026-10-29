@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>고객 데이터 분석 대시보드</title>
+<style>
+:root{
+  --bg:#f7f4ec; --panel:#fffdf7; --border:rgba(96,77,36,.12); --border2:rgba(96,77,36,.20);
+  --ink:#202c38; --muted:#687786; --dim:#8b98a5;
+  --accent:#df6b36; --accent2:#d7a51c;
+  --vip:#f4bc4b; --good:#45c3a5; --basic:#91a4b4; --churn:#f07862; --green:#45c3a5;
+  --font:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR','Noto Sans CJK KR',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 620px at 6% -10%,rgba(244,123,69,.13),transparent 62%),
+    radial-gradient(1000px 650px at 100% 110%,rgba(69,195,165,.10),transparent 60%),
+    radial-gradient(800px 500px at 60% 40%,rgba(233,184,74,.05),transparent 70%),
+    linear-gradient(rgba(232,193,148,.035) 1px,transparent 1px) 0 0/36px 36px,
+    linear-gradient(90deg,rgba(232,193,148,.035) 1px,transparent 1px) 0 0/36px 36px;
+  background-attachment:fixed}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+
+#stage{position:absolute;left:50%;top:50vh;width:1920px;height:1080px;padding:28px 32px;z-index:1;
+  display:grid;grid-template-columns:480px 880px 1fr;grid-template-rows:116px 88px 716px 62px;gap:14px 16px;transform-origin:center center}
+.card{position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(21,34,56,.94),rgba(13,22,37,.94));
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 14px 34px rgba(0,0,0,.38)}
+.card::before{content:'';position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.55),transparent);opacity:.7}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+.kpis .card:nth-child(1){animation-delay:.05s}.kpis .card:nth-child(2){animation-delay:.1s}.kpis .card:nth-child(3){animation-delay:.15s}.kpis .card:nth-child(4){animation-delay:.2s}.kpis .card:nth-child(5){animation-delay:.25s}
+.colL>.card:nth-child(1){animation-delay:.2s}.colL>.card:nth-child(2){animation-delay:.3s}
+.colC>.card:nth-child(1){animation-delay:.28s}.colC .row2>.card:nth-child(1){animation-delay:.38s}.colC .row2>.card:nth-child(2){animation-delay:.44s}
+.colR>.card:nth-child(1){animation-delay:.32s}.colR>.card:nth-child(2){animation-delay:.4s}.colR>.card:nth-child(3){animation-delay:.48s}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.ph{display:flex;align-items:center;gap:10px;padding:14px 18px 0;flex:none}
+.ph h2{font-size:15px;font-weight:700;letter-spacing:-.02em}
+.ph .sp{flex:1}
+.tag{font:600 10px/1 var(--mono);letter-spacing:.1em;padding:5px 8px;border-radius:99px;border:1px solid var(--border2);color:var(--muted);white-space:nowrap}
+.ico{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(56,189,248,.1);color:var(--accent);flex:none}
+.ico svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.eyebrow{font:600 10px/1 var(--mono);letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+
+/* ---------- 헤더 ---------- */
+.hdr{grid-column:1/-1;display:grid;grid-template-columns:430px 1fr 470px;align-items:center;padding:0 22px 0 26px;gap:18px}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.logo{width:54px;height:54px;flex:none}
+.brand h1{font-size:24px;font-weight:800;letter-spacing:-.035em;line-height:1.15;margin-top:6px}
+.brand h1 em{font-style:normal;background:linear-gradient(90deg,var(--vip),var(--churn));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand .sub{font-size:11px;color:var(--muted);margin-top:5px}
+.seg{display:flex;gap:6px;background:#0b1424;border:1px solid var(--border2);border-radius:14px;padding:6px;height:62px}
+.seg button{flex:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);transition:.18s;border:1px solid transparent;min-width:0}
+.seg button b{font-size:13px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.seg button b i{width:8px;height:8px;border-radius:50%;background:var(--gc,var(--muted));box-shadow:0 0 10px var(--gc,transparent)}
+.seg button span{font:600 11px var(--mono);color:var(--dim)}
+.seg button:hover{background:rgba(56,189,248,.06)}
+.seg button.on{background:color-mix(in srgb,var(--gc,var(--accent)) 16%,#0b1424);border-color:var(--gc,var(--accent))}
+.seg button.on span{color:var(--ink)}
+.profile{display:flex;align-items:center;gap:16px;height:100%;padding:6px 0 6px 18px;border-left:1px solid var(--border)}
+.photo{position:relative;width:70px;height:94px;flex:none;border-radius:10px;overflow:hidden;border:1px solid var(--border2);background:#0b1526;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.photo .ph-fb{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:8px;font-size:9.5px;color:var(--muted);text-align:center;background:linear-gradient(180deg,#0e1a2e,#0a1322)}
+.photo .ph-fb svg{width:42px;height:42px;fill:#1f3556}
+.photo.has .ph-fb{display:none}
+.pinfo{min-width:0;flex:1}
+.pinfo .nm{display:flex;align-items:baseline;gap:8px}
+.pinfo .nm b{font-size:21px;font-weight:800;letter-spacing:-.03em}
+.pinfo .nm span{font-size:11px;color:var(--muted)}
+.pgrid{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin-top:7px;font-size:11.5px}
+.pgrid dt{font:600 9.5px/18px var(--mono);letter-spacing:.12em;color:var(--dim)}
+.pgrid dd{color:#c5d2e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pgrid dd b{color:var(--ink);font-weight:600}
+
+/* ---------- KPI ---------- */
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.kpi{padding:14px 20px;display:flex;align-items:center;gap:16px}
+.kpi::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kc,var(--accent));box-shadow:0 0 18px var(--kc,var(--accent))}
+.kpi .kic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--kc,var(--accent)) 14%,transparent);color:var(--kc,var(--accent))}
+.kpi .kic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.kpi .kl{font:600 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--muted)}
+.kpi .kv{font:700 29px/1 var(--mono);letter-spacing:-.03em;margin-top:9px;white-space:nowrap;color:var(--ink)}
+.kpi .kv small{font:600 13px var(--font);color:var(--muted);margin-left:4px;letter-spacing:0}
+.kpi .ks{font-size:11.5px;color:var(--muted);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi>div:last-child{min-width:0}
+
+/* ---------- 컬럼 ---------- */
+.colL{grid-column:1;grid-row:3;display:grid;grid-template-rows:304px 1fr;gap:14px;min-height:0}
+.colC{grid-column:2;grid-row:3;display:grid;grid-template-rows:396px 1fr;gap:14px;min-height:0}
+.colC .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0}
+.colR{grid-column:3;grid-row:3;display:grid;grid-template-rows:252px 190px 1fr;gap:14px;min-height:0}
+.card.col{display:flex;flex-direction:column;min-height:0}
+
+/* ---------- 도넛 ---------- */
+.donutwrap{display:flex;align-items:center;gap:12px;padding:2px 14px 0;flex:1;min-height:0}
+.donut{flex:none;width:170px;height:170px;position:relative}
+.donut svg{width:170px;height:170px;transform:rotate(-90deg)}
+.donut circle.seg{fill:none;stroke-width:24;cursor:pointer;transition:stroke-dasharray 1.1s cubic-bezier(.2,.7,.2,1),opacity .2s,stroke-width .2s}
+.donut circle.bg{fill:none;stroke:rgba(99,179,237,.08);stroke-width:24}
+.donut .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.donut .mid b{font:800 34px/1 var(--mono);letter-spacing:-.04em}
+.donut .mid span{font-size:11px;color:var(--muted);margin-top:5px}
+.legend{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lg{display:grid;grid-template-columns:10px 1fr auto;column-gap:8px;align-items:center;padding:4px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:.15s}
+.lg:hover{background:rgba(56,189,248,.06)}
+.lg.on{background:rgba(56,189,248,.1);border-color:var(--border2)}
+.lg i{width:10px;height:10px;border-radius:3px;background:var(--gc)}
+.lg .n{font-size:13px;font-weight:700}
+.lg .c{font:700 13px var(--mono);text-align:right}
+.lg .c small{font:600 10.5px var(--font);color:var(--muted);margin-left:4px}
+.lg .bar{grid-column:2/4;height:4px;border-radius:3px;background:rgba(99,179,237,.1);margin-top:4px;overflow:hidden}
+.lg .bar u{display:block;height:100%;border-radius:3px;background:var(--gc);width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.lg .lrv{grid-column:2/4;font-size:10.5px;color:var(--dim);margin-top:2px}
+.rule{padding:0 18px 10px;font-size:10.5px;color:var(--dim);line-height:1.55}
+.rule b{color:var(--muted);font-weight:700}
+
+/* ---------- 고객 리스트 ---------- */
+.search{margin:10px 16px 6px;position:relative;flex:none}
+.search input{width:100%;height:32px;border-radius:99px;border:1px solid var(--border2);background:rgba(6,10,20,.55);padding:0 14px 0 34px;font-size:12.5px;outline:none}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.15)}
+.search svg{position:absolute;left:12px;top:9px;width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round}
+.thead,.crow{display:grid;grid-template-columns:44px 1fr 62px 40px 66px 52px;gap:6px;align-items:center;padding:0 10px}
+.thead{font:700 9.5px var(--mono);letter-spacing:.08em;color:var(--dim);padding-bottom:5px;margin:0 16px;border-bottom:1px solid var(--border)}
+.clist{flex:1;overflow-y:auto;padding:2px 16px 8px;min-height:0}
+.clist::-webkit-scrollbar{width:6px}.clist::-webkit-scrollbar-thumb{background:#1c2a44;border-radius:3px}
+.crow{height:34px;border-radius:9px;font-size:12px;cursor:pointer;border:1px solid transparent}
+.crow:hover{background:rgba(56,189,248,.06)}
+.crow.sel{background:rgba(56,189,248,.12);border-color:var(--border2)}
+.crow .id{font:600 11px var(--mono);color:var(--muted)}
+.crow .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gchip{font:700 10px/1 var(--font);padding:3px 7px;border-radius:99px;color:#0a1020;background:var(--gc);text-align:center;white-space:nowrap}
+.crow .o{font:600 11.5px var(--mono);text-align:right}
+.crow .sp2{font:600 11.5px var(--mono);text-align:right}
+.crow .st{color:var(--vip);font-size:10px;letter-spacing:.5px;text-align:right}
+
+/* ---------- 산점도 ---------- */
+.scwrap{position:relative;flex:1;padding:2px 16px 8px;min-height:0}
+#sc{display:block;width:100%;height:100%}
+.dot{cursor:pointer;transform-box:fill-box;transform-origin:center;transition:opacity .25s,r .15s}
+.dot.intro{animation:pop .55s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes pop{from{transform:scale(0);opacity:0}}
+.selcard{position:absolute;right:30px;bottom:48px;background:rgba(8,14,26,.92);border:1px solid var(--border2);border-radius:12px;padding:9px 12px;font-size:11.5px;min-width:208px;box-shadow:0 10px 26px rgba(0,0,0,.45);animation:rise .3s both}
+.selcard .t{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.selcard .t b{font-size:14px}
+.selcard .g{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;color:var(--muted)}
+.selcard .g span:nth-child(even){color:var(--ink);font:600 11.5px var(--mono);text-align:right}
+.axis{font:600 10px var(--mono);fill:#56698a}
+.axt{font:600 10.5px var(--font);fill:#8395b0}
+
+/* ---------- 지역/연령 차트 ---------- */
+.cbody{flex:1;padding:6px 16px 10px;min-height:0}
+.cbody svg{width:100%;height:100%;display:block}
+.rbar{transition:width .9s cubic-bezier(.2,.7,.2,1)}
+.lbl{font:600 11px var(--font);fill:#c5d2e6}
+.val{font:700 10.5px var(--mono);fill:#8395b0}
+
+/* ---------- 프로파일 표 ---------- */
+table.pt{width:calc(100% - 28px);margin:8px 14px 0;border-collapse:collapse;font-size:11.5px}
+table.pt th{font:700 11px var(--font);padding:4px 4px;text-align:center;border-bottom:1px solid var(--border2);white-space:nowrap}
+table.pt th:first-child{text-align:left;color:var(--dim);font:700 9.5px var(--mono);letter-spacing:.08em}
+table.pt th i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gc);margin-right:4px}
+table.pt td{padding:4px 4px;text-align:center;border-bottom:1px solid rgba(99,179,237,.06);font:600 11.5px var(--mono);color:#cfd9ea;transition:background .2s}
+table.pt td:first-child{text-align:left;font:600 11px var(--font);color:var(--muted)}
+table.pt td.hl,table.pt th.hl{background:rgba(56,189,248,.08)}
+
+/* ---------- 만족도/리뷰 ---------- */
+.revbody{flex:1;display:grid;grid-template-columns:132px 1fr;gap:12px;padding:6px 16px 10px;min-height:0}
+.satbox{display:flex;flex-direction:column;gap:3px}
+.satbig{font:800 26px/1 var(--mono);letter-spacing:-.03em}
+.satbig small{font:600 12px var(--font);color:var(--muted)}
+.satstar{color:var(--vip);font-size:11px;letter-spacing:1px;margin:2px 0 4px}
+.sbar{display:grid;grid-template-columns:14px 1fr 24px;align-items:center;gap:5px;font:600 10px var(--mono);color:var(--dim)}
+.sbar u{display:block;height:6px;border-radius:3px;background:var(--vip);width:0;transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.sbar div{height:6px;border-radius:3px;background:rgba(99,179,237,.1);overflow:hidden}
+.sbar em{font-style:normal;text-align:right;color:var(--muted)}
+.revlist{display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden}
+.rv{background:rgba(56,189,248,.05);border:1px solid var(--border);border-radius:10px;padding:6px 10px;animation:rise .4s both;min-width:0}
+.rv .h{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:3px}
+.rv .h b{color:var(--ink);font-size:11.5px}
+.rv .h .s{color:var(--vip);letter-spacing:.5px;font-size:10px}
+.rv p{font-size:11.5px;line-height:1.45;color:#c9d3e6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- 전략 ---------- */
+.stbody{flex:1;padding:6px 16px 10px;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}
+.sttabs{display:flex;gap:6px;flex:none}
+.sttabs button{flex:1;height:24px;border-radius:99px;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--border);transition:.15s}
+.sttabs button.on{color:#0a1020;background:var(--gc);border-color:var(--gc)}
+.goal{font-size:11.5px;color:#c9d3e6;line-height:1.45;flex:none}
+.goal b{color:var(--ink)}
+.acts{display:flex;flex-direction:column;gap:5px;flex:none}
+.act{display:grid;grid-template-columns:50px 1fr;gap:8px;align-items:start;font-size:11.5px;line-height:1.45;color:#c2cee2}
+.act em{font-style:normal;font:700 10px var(--font);text-align:center;padding:3px 0;border-radius:6px;background:color-mix(in srgb,var(--gc) 20%,transparent);color:var(--gc);margin-top:1px}
+.act b{color:#fff}
+.msg{background:#0b1424;border:1px dashed var(--border2);border-radius:10px;padding:6px 10px;font-size:11px;line-height:1.45;color:#c9d3e6;flex:1;min-height:0;overflow:hidden;animation:rise .35s both}
+.msg .sw{display:flex;gap:5px;margin-bottom:4px;align-items:center}.msg .sw span{margin-left:auto;font-size:10px;color:var(--dim)}
+.msg .sw button{font:700 10px var(--font);padding:3px 9px;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
+.msg .sw button.on{background:var(--churn);border-color:var(--churn);color:#0a1020}
+.msg .cta{display:inline-block;margin-top:4px;font:800 10.5px var(--font);padding:3px 10px;border-radius:99px;background:var(--gc);color:#0a1020}
+
+/* ---------- 푸터 ---------- */
+.foot-band{grid-column:1/-1;position:relative;display:flex;align-items:center;padding:0 22px;overflow:hidden;gap:18px}
+.foot-band .lab{flex:none;font:700 11px var(--mono);letter-spacing:.1em;color:var(--accent);display:flex;align-items:center;gap:8px;z-index:2;padding-right:16px;border-right:1px solid var(--border)}
+.foot-band .lab i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:ping 1.8s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.ticker{flex:1;overflow:hidden;position:relative;height:100%;mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.ticker .track{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;gap:34px;white-space:nowrap;animation:scroll 90s linear infinite}
+@keyframes scroll{to{transform:translateX(-50%)}}
+.ticker .it{font-size:12px;color:#aab6cc;display:flex;align-items:center;gap:8px}
+.ticker .it b{color:#fff}
+.ticker .it i{width:7px;height:7px;border-radius:50%;background:var(--gc)}
+.ticker .it .s{color:var(--vip);font-size:10px;letter-spacing:1px}
+.foot-band .note{flex:none;font-size:10.5px;color:var(--dim);z-index:2;padding-left:16px;border-left:1px solid var(--border)}
+.report-launch{position:absolute;right:500px;top:87px;z-index:5;padding:8px 13px;border-radius:9px;background:linear-gradient(135deg,#f47b45,#e9a43f);color:#211810;font-size:11px;font-weight:900;box-shadow:0 5px 18px #f47b4538;transition:transform .15s,filter .15s}
+.report-launch:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.brand .sub{display:flex;align-items:center;gap:9px;white-space:nowrap}.hdr .report-launch{position:static;padding:4px 8px;font-size:9px;box-shadow:none;border-radius:6px}
+.scroll-pdf-hint{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border:1px solid #f47b454d;border-radius:6px;background:#f47b4514;color:#ffd0ad;font-size:9px;font-weight:700;letter-spacing:0}
+.hdr .pgrid{grid-template-columns:auto 1fr}.hdr .pgrid dd{font-size:10.5px}
+.report-modal{display:none;position:fixed;inset:0;z-index:50;background:rgba(6,8,11,.84);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:3vh 3vw}
+.report-modal.open{display:flex}.report-shell{width:min(1600px,96vw);height:min(960px,94vh);overflow:auto;border:1px solid rgba(244,123,69,.34);border-radius:18px;background:#111512;color:#eee9df;box-shadow:0 30px 100px #000a}
+.report-head{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding:16px 22px;background:#171b19;border-bottom:1px solid var(--border2)}.report-head .rbrand{margin-right:auto}.rbrand b{display:block;font-size:14px;color:#fff}.rbrand span{font:9px var(--mono);letter-spacing:.12em;color:var(--accent)}
+.report-head button{padding:8px 12px;border:1px solid var(--border2);border-radius:8px;color:#f3eee7;font-size:10px}.report-head button.primary{background:var(--accent);color:#211810;border:0;font-weight:900}.report-layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100% - 58px)}
+.report-toc{position:sticky;top:58px;align-self:start;padding:22px 14px;border-right:1px solid var(--border);display:grid;gap:4px}.report-toc h2{font-size:10px;letter-spacing:.16em;color:var(--muted);padding:0 10px 8px}.report-toc a{display:flex;gap:11px;text-decoration:none;color:#bdc5bf;padding:10px;border-radius:8px;font-size:10px;line-height:1.45}.report-toc a b{color:var(--accent);font:600 10px var(--mono)}.report-toc a:hover,.report-toc a.active{background:#f47b4518;color:white}
+.report-content{padding:25px 30px 50px;max-width:1200px}.report-section{padding:0 0 30px;margin:0 0 28px;border-bottom:1px solid var(--border);scroll-margin-top:82px}.report-section h2{font-size:18px;color:white;margin:0 0 14px}.report-section h2 em{font:700 12px var(--mono);color:var(--accent);font-style:normal;margin-right:9px}.report-section h3{font-size:11px;color:#f0c77c;margin:12px 0 8px}.report-section p{font-size:10px;line-height:1.65;color:#b7c0b8;margin:6px 0 12px}.report-section .sumcards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.sumcard{padding:12px;background:#1a201c;border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:8px}.sumcard span{font-size:9px;color:var(--muted)}.sumcard b{display:block;font:700 19px var(--mono);color:#fff;margin-top:5px}
+.print-cover{min-height:560px;padding:54px 7%;display:flex;flex-direction:column;justify-content:center;background:radial-gradient(ellipse at 85% 15%,#253b5b 0,transparent 50%),linear-gradient(135deg,#081326,#102d4d);color:#fff;border-radius:4px;margin:0 0 26px}.print-cover .conf{align-self:flex-start;padding:9px 16px;border:1px solid #f0786255;background:#f0786218;color:#ff806d;font:700 10px var(--mono);letter-spacing:.22em}.print-cover h1{font-size:36px;line-height:1.25;margin:38px 0 10px;color:#fff}.print-cover h1 em{color:#ff795f;font-style:normal}.print-cover .subtitle{font-size:15px;color:#a9c5e2}.cover-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;border-top:1px solid #ffffff20;margin-top:48px;padding-top:22px}.cover-meta span{display:block;color:#7e9bbd;font:9px var(--mono);letter-spacing:.1em;margin-bottom:7px}.cover-meta b{font-size:12px;color:#e5edf7}.print-toc{padding:28px 34px;border:1px solid #d6e1ef;border-radius:7px;margin:0 0 30px;background:#fff;color:#17365b}.print-toc h2{font-size:15px;margin:0 0 16px;color:#4f6d90}.print-toc ol{list-style:none;padding:0;margin:0;counter-reset:toc}.print-toc li{display:flex;gap:16px;padding:10px 0;border-bottom:1px solid #e1e8f1;font-size:13px}.print-toc li b{color:#ed604b;font:600 12px var(--mono)}
+.below-report{position:relative;z-index:2;width:min(1100px,90vw);margin:100vh auto 70px;padding-bottom:30px}.below-report .print-cover{min-height:430px;padding:46px 6%;box-shadow:0 22px 70px #0007}.below-report .print-cover h1{font-size:34px}.below-report .print-toc{padding:28px 34px;box-shadow:0 14px 40px #0003}.below-report .print-toc li{font-size:14px;padding:12px 0}.below-report .open-full-report{display:inline-flex;margin:0 0 36px;padding:12px 18px;border-radius:8px;background:linear-gradient(135deg,#f47b45,#e9b84a);color:#201810;font-size:13px;font-weight:900;box-shadow:0 8px 22px #f47b4525}
+.report-section table{width:100%;border-collapse:collapse;font-size:10px;margin:9px 0}.report-section th{text-align:left;background:#232923;color:#edc98e;padding:8px;border-bottom:1px solid var(--border2)}.report-section td{padding:7px 8px;color:#d4d9d3;border-bottom:1px solid var(--border)}.report-section tr:nth-child(even){background:#171c19}
+.grade-pill{display:inline-block;padding:3px 7px;border-radius:99px;background:color-mix(in srgb,var(--gc) 18%,transparent);color:var(--gc);font-size:9px;font-weight:800}
+.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.report-card{padding:13px;background:#191f1b;border:1px solid var(--border);border-radius:9px}.report-bars{display:grid;gap:7px}.report-bar{display:grid;grid-template-columns:90px 1fr 86px;gap:8px;align-items:center;font-size:9px;color:#c2c9c3}.report-bar i{height:9px;border-radius:9px;background:#2a322c;overflow:hidden}.report-bar i u{display:block;height:100%;width:var(--w);background:var(--c);border-radius:9px}.report-bar b{text-align:right;color:white;font:600 9px var(--mono)}
+.benefit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.benefit-card{padding:12px;background:#191f1b;border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:8px}.benefit-card h4{font-size:10px;color:#f4c974;margin-bottom:7px}.benefit-card p{margin:4px 0;font-size:9px}.customer-table{max-height:340px;overflow:auto}.customer-table thead{position:sticky;top:0}
+@media(max-width:900px){.report-launch{right:470px}.report-layout{grid-template-columns:1fr}.report-toc{position:static;border-right:0;border-bottom:1px solid var(--border);grid-template-columns:1fr 1fr}.report-content{padding:18px}.report-grid{grid-template-columns:1fr}.report-section .sumcards{grid-template-columns:1fr 1fr}}
+@media print{body>*:not(#reportModal){display:none!important}#reportModal{display:block!important;position:static;background:#fff;padding:0}.report-shell{width:100%;height:auto;overflow:visible;border:0;background:#fff;color:#111;box-shadow:none}.report-head,.report-toc{display:none}.report-layout{display:block}.report-content{padding:0;max-width:none}.print-cover{min-height:175mm;break-after:page;border-radius:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-cover h1{font-size:34pt}.print-toc{min-height:150mm;break-after:page;border:1px solid #d6e1ef}.report-section{break-inside:avoid;color:#111}.report-section h2,.report-section h3,.report-section p,.report-section td,.report-section th{color:#111!important}.report-card,.sumcard,.benefit-card{background:#fff;border-color:#ccc}.report-section td{border-color:#ccc}.report-section tr:nth-child(even){background:#f5f5f5}.customer-table{max-height:none;overflow:visible}@page{size:A4 landscape;margin:12mm}}
+/* Light retail dashboard theme */
+body{color:var(--ink)}
+body::before{background:radial-gradient(900px 520px at 7% 0%,rgba(247,196,65,.15),transparent 65%),radial-gradient(900px 580px at 100% 100%,rgba(69,195,165,.055),transparent 62%),linear-gradient(rgba(111,91,45,.03) 1px,transparent 1px) 0 0/36px 36px,linear-gradient(90deg,rgba(111,91,45,.03) 1px,transparent 1px) 0 0/36px 36px,#f7f4ec}
+.card{background:linear-gradient(180deg,#fffefb,#fffaf0);border-color:#e9e1ce;box-shadow:0 1px 0 #fff inset,0 10px 26px rgba(67,55,28,.09)}
+.card::before{height:3px;background:linear-gradient(90deg,transparent,#e7ba42,transparent);opacity:.85}
+.ph{background:linear-gradient(90deg,#fff8df,rgba(255,248,223,0));padding-bottom:9px;border-bottom:1px solid #f1e8cc}
+.kpi:nth-child(1),.kpi:nth-child(3){background:linear-gradient(135deg,#fff8df,#fffdf7)}
+.kpi:nth-child(1)::after,.kpi:nth-child(3)::after{width:4px;background:#e3b52c;box-shadow:0 0 14px #e3b52c55}
+.brand h1 em{background:linear-gradient(90deg,#c58f08,#e86f3c);-webkit-background-clip:text;background-clip:text}
+.scroll-pdf-hint{background:#fff3c4;border-color:#e9c95e;color:#745610}
+.rule{background:linear-gradient(90deg,#fff7dc,transparent);border-left:3px solid #e3b52c;padding-top:6px}
+.seg{background:#edf1f4;border-color:#dce4eb}.seg button:hover,.lg:hover,.crow:hover{background:rgba(232,111,60,.07)}
+.seg button.on{background:color-mix(in srgb,var(--gc,var(--accent)) 16%,#fff)}
+.photo{background:#f1f4f7;box-shadow:0 6px 16px rgba(31,48,65,.12)}.photo .ph-fb{background:linear-gradient(180deg,#f1f5f8,#e6edf3);color:#687786}.photo .ph-fb svg{fill:#b8c7d4}
+.pgrid dd{color:#405262}.kpi .kl,.tag{color:#687786}
+.donut circle.bg{stroke:#e7edf2}.lg.on{background:#fff4e9;border-color:#f3d4bd}.lg .bar{background:#e8edf1}
+.search input{background:#f8fafb;color:#273746}.clist::-webkit-scrollbar-thumb{background:#ccd6df}
+.selcard{background:#fff;border-color:#dce4eb;box-shadow:0 8px 24px rgba(31,48,65,.15)}.selcard .g span:nth-child(even){color:#263746}
+.axis{fill:#718293}.axt{fill:#556879}.lbl{fill:#405262}.val{fill:#687b8d}
+table.pt td{color:#35485a;border-bottom-color:#e8edf1}table.pt td:first-child,table.pt th:first-child{color:#728293}table.pt td.hl,table.pt th.hl{background:#fff3e8}
+.rv{background:#f7f9fb;border-color:#e4eaf0}.rv p,.goal,.act,.msg{color:#425465}.act b,.rv .h b{color:#253746}.msg{background:#f7f9fb;border-color:#dce4eb}.msg .cta{color:#fff}.msg .sw button{color:#647586}.msg .sw button.on{color:#fff}
+.ticker .it{color:#526476}.ticker .it b{color:#263746}
+.report-modal{background:rgba(57,47,26,.42)}.report-shell{background:#fffdf8;color:#263746;border-color:#e8dfc8;box-shadow:0 24px 80px rgba(53,43,22,.22)}.report-head{background:#fffaf0;border-color:#e8dfc8}.rbrand b{color:#223344}.report-head button{color:#405264;border-color:#dfd5bc}.report-layout{background:#fffdf8}.report-toc{background:#fff9e7;border-color:#eadfbf}.report-toc a{color:#526476}.report-toc a:hover,.report-toc a.active{background:#ffefbd;color:#283847}.report-content{color:#263746}.report-section h2{color:#223344}.report-section h3{color:#8b6517}.report-section p{color:#556879}.sumcard,.report-card,.benefit-card{background:#fffdf8;border-color:#e8dfc8}.sumcard{border-top-color:#e5bb3d}.sumcard b{color:#263746}.report-section th{background:#fff3c9;color:#765817;border-color:#e9dfc5}.report-section td{color:#34495b;border-color:#e5ebf0}.report-section tr:nth-child(even){background:#fffaf0}.report-bar{color:#526476}.report-bar i{background:#eee9db}.report-bar b{color:#263746}.benefit-card{border-top-color:#e5bb3d}.benefit-card h4{color:#8d6714}.grade-pill{background:color-mix(in srgb,var(--gc) 14%,white)}
+</style>
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <header class="hdr card">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#f87171"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="29" fill="none" stroke="url(#lg)" stroke-width="3.5"/>
+        <path d="M15 25h34l-3 25H18z" fill="none" stroke="url(#lg)" stroke-width="3.5" stroke-linejoin="round"/>
+        <path d="M23 27v-5a9 9 0 0 1 18 0v5" fill="none" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="eyebrow">CRM · RFM Analytics</div>
+        <h1>고객 데이터 <em>분석</em> 대시보드</h1>
+        <div class="sub">온라인 쇼핑몰 고객 200명 · 2025.05.15 기준 <span class="scroll-pdf-hint">↓ 아래로 스크롤해 보고서를 PDF로 저장하세요</span><button class="report-launch" id="reportLaunch">보고서 목차 ↗</button></div>
+      </div>
+    </div>
+    <div class="seg" id="seg"></div>
+    <div class="profile">
+      <div class="photo" id="photoBox">
+        <img id="photo" alt="증명사진">
+        <div class="ph-fb"><svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="11"/><path d="M8 62c0-15 10-24 24-24s24 9 24 24z"/></svg>증명사진</div>
+      </div>
+      <div class="pinfo">
+        <div class="nm"><b id="pName">-</b><span id="pRole">-</span></div>
+        <dl class="pgrid">
+          <dt>보고 대상</dt><dd id="pDept">-</dd>
+          <dt>보고 일시</dt><dd id="pCourse">-</dd>
+          <dt>자료</dt><dd id="pTask">-</dd>
+        </dl>
+      </div>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <div class="card kpi" style="--kc:#38bdf8"><div class="kic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3-6 6.5-6s6 2 6.5 6M16 5a3.5 3.5 0 0 1 0 7M18 14c2 .8 3.2 2.8 3.5 6"/></svg></div><div><div class="kl" id="kl1">CUSTOMERS</div><div class="kv" id="k1">-</div><div class="ks" id="k1s">-</div></div></div>
+    <div class="card kpi" style="--kc:#fbbf24"><div class="kic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 8.5c-.6-.8-1.5-1.2-2.6-1.2-1.6 0-2.7.9-2.7 2 0 1.3 1.2 1.7 2.8 2.1 1.7.4 2.9.9 2.9 2.2 0 1.2-1.2 2.2-2.9 2.2-1.2 0-2.2-.5-2.8-1.4M12 5.5v1.8M12 16.7v1.8"/></svg></div><div><div class="kl">TOTAL REVENUE</div><div class="kv" id="k2">-</div><div class="ks" id="k2s">-</div></div></div>
+    <div class="card kpi" style="--kc:#34d399"><div class="kic"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg></div><div><div class="kl">AVG ORDERS</div><div class="kv" id="k3">-</div><div class="ks" id="k3s">-</div></div></div>
+    <div class="card kpi" style="--kc:#818cf8"><div class="kic"><svg viewBox="0 0 24 24"><path d="M12 17.3l-5.4 3 1.4-6-4.6-4 6-.5L12 4l2.6 5.8 6 .5-4.6 4 1.4 6z"/></svg></div><div><div class="kl">SATISFACTION</div><div class="kv" id="k4">-</div><div class="ks" id="k4s">-</div></div></div>
+    <div class="card kpi" style="--kc:#f87171"><div class="kic"><svg viewBox="0 0 24 24"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.5v.2"/></svg></div><div><div class="kl">CHURN RISK</div><div class="kv" id="k5">-</div><div class="ks" id="k5s">-</div></div></div>
+  </section>
+
+  <section class="colL">
+    <div class="card col">
+      <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M21 12A9 9 0 1 1 12 3"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/></svg></span><h2>RFM 고객 등급 분포</h2><span class="sp"></span><span class="tag">N = 200</span></div>
+      <div class="donutwrap">
+        <div class="donut"><svg viewBox="0 0 176 176" id="donut"></svg><div class="mid"><b id="dTot">200</b><span id="dLab">전체 고객</span></div></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="rule"><b>VIP</b> 주문 15회↑ · 300만원↑ &nbsp;|&nbsp; <b>이탈 위험</b> 180일↑ 미구매 · 과거 10회↑<br><b>우수</b> 8회↑ 또는 180만원↑ &nbsp;|&nbsp; <b>일반</b> 그 외 (VIP → 이탈 → 우수 순 판정)</div>
+    </div>
+    <div class="card col">
+      <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></span><h2>고객 리스트</h2><span class="sp"></span><span class="tag" id="listTag">200명</span></div>
+      <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="고객명 또는 ID 검색 (예: 김서윤, C017)" autocomplete="off"></div>
+      <div class="thead"><span>ID</span><span>고객명</span><span>등급</span><span style="text-align:right">주문</span><span style="text-align:right">구매액</span><span style="text-align:right">만족</span></div>
+      <div class="clist" id="clist"></div>
+    </div>
+  </section>
+
+  <section class="colC">
+    <div class="card col">
+      <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="7" cy="16" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="17" cy="6" r="1.6"/><path d="M3 21V3M3 21h18"/></svg></span><h2>RFM 산점도 — 빈도(F) × 금액(M)</h2><span class="sp"></span><span class="tag">점 클릭 = 고객 상세</span></div>
+      <div class="scwrap"><svg id="sc" viewBox="0 0 848 318" preserveAspectRatio="xMidYMid meet"></svg><div class="selcard" id="selcard" style="display:none"></div></div>
+    </div>
+    <div class="row2">
+      <div class="card col">
+        <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><h2>지역별 고객 · 구매액</h2><span class="sp"></span><span class="tag" id="regTag">TOP 7</span></div>
+        <div class="cbody"><svg id="regSvg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+      </div>
+      <div class="card col">
+        <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></span><h2>연령대 × 등급</h2><span class="sp"></span><span class="tag">STACKED</span></div>
+        <div class="cbody"><svg id="ageSvg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="colR">
+    <div class="card col">
+      <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M9 3v18"/></svg></span><h2>등급별 프로파일 비교</h2><span class="sp"></span><span class="tag">AVG</span></div>
+      <table class="pt" id="pt"></table>
+    </div>
+    <div class="card col">
+      <div class="ph"><span class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><h2>만족도 · 고객 리뷰</h2><span class="sp"></span><span class="tag" id="revTag">전체</span></div>
+      <div class="revbody"><div class="satbox" id="satbox"></div><div class="revlist" id="revlist"></div></div>
+    </div>
+    <div class="card col">
+      <div class="ph"><span class="ico" style="background:rgba(129,140,248,.14);color:#a5b0ff"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/></svg></span><h2>등급별 마케팅 전략</h2><span class="sp"></span><span class="tag">CRM ACTION</span></div>
+      <div class="stbody" id="stbody"></div>
+    </div>
+  </section>
+
+  <footer class="card foot-band">
+    <div class="lab"><i></i>LIVE REVIEWS</div>
+    <div class="ticker"><div class="track" id="track"></div></div>
+    <div class="note">※ 본 데이터는 교육 실습용 가상 데이터입니다</div>
+  </footer>
+</div>
+
+<section class="below-report" aria-label="분석 보고서 표지와 목차">
+  <div class="print-cover"><span class="conf">CONFIDENTIAL · INTERNAL REPORT</span><h1>RFM 기반 <em>고객 세분화</em><br>종합 분석 보고서</h1><div class="subtitle">200명 고객 데이터 기반 등급 분류, 인구통계 분석 및 Win-back 전략</div><div class="cover-meta"><div><span>분석 기준일</span><b>2025년 5월 15일</b></div><div><span>보고 일시</span><b>2026년 10월 13일</b></div><div><span>보고자</span><b>김시원</b></div><div><span>분석 대상</span><b>전체 고객 200명</b></div></div></div>
+  <div class="print-toc"><h2>목 차</h2><ol><li><b>01</b>Executive Summary</li><li><b>02</b>분석 개요 및 등급 분류 기준</li><li><b>03</b>고객 등급별 분류 결과</li><li><b>04</b>VIP·이탈 위험 고객 인구통계학적 비교 분석</li><li><b>05</b>VIP 고객 심층 프로파일 및 충성도 강화 전략</li><li><b>06</b>이탈 위험 고객 Win-back LMS 캠페인</li><li><b>07</b>종합 제언</li></ol></div>
+  <button class="open-full-report" id="openFullReport">전체 분석 보고서 보기 · 인쇄 / PDF 저장 ↗</button>
+</section>
+
+<div class="report-modal" id="reportModal" aria-hidden="true">
+ <div class="report-shell" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+  <header class="report-head"><div class="rbrand"><span>ONLINE RETAIL · CUSTOMER INTELLIGENCE</span><b id="reportTitle">고객 세분화 분석 보고서</b></div><button id="reportPrint" class="primary">인쇄 / PDF 저장</button><button id="reportClose" aria-label="보고서 닫기">닫기 ×</button></header>
+  <div class="report-layout">
+   <nav class="report-toc" aria-label="보고서 목차"><h2>목 차</h2><a href="#r01"><b>01</b>Executive Summary</a><a href="#r02"><b>02</b>분석 개요 및 등급 분류 기준</a><a href="#r03"><b>03</b>고객 등급별 분류 결과</a><a href="#r04"><b>04</b>VIP·이탈 위험 고객 인구통계학적 비교 분석</a><a href="#r05"><b>05</b>VIP 고객 심층 프로파일 및 충성도 강화 전략</a><a href="#r06"><b>06</b>이탈 위험 고객 Win-back LMS 캠페인</a><a href="#r07"><b>07</b>종합 제언</a></nav>
+   <main class="report-content">
+    <section class="print-cover"><span class="conf">CONFIDENTIAL · INTERNAL REPORT</span><h1>RFM 기반 <em>고객 세분화</em><br>종합 분석 보고서</h1><div class="subtitle">200명 고객 데이터 기반 등급 분류, 인구통계 분석 및 Win-back 전략</div><div class="cover-meta"><div><span>분석 기준일</span><b>2025년 5월 15일</b></div><div><span>보고 일시</span><b>2026년 10월 13일</b></div><div><span>보고자</span><b>김시원</b></div><div><span>분석 대상</span><b>전체 고객 200명</b></div></div></section>
+    <section class="print-toc"><h2>목 차</h2><ol><li><b>01</b>Executive Summary</li><li><b>02</b>분석 개요 및 등급 분류 기준</li><li><b>03</b>고객 등급별 분류 결과</li><li><b>04</b>VIP·이탈 위험 고객 인구통계학적 비교 분석</li><li><b>05</b>VIP 고객 심층 프로파일 및 충성도 강화 전략</li><li><b>06</b>이탈 위험 고객 Win-back LMS 캠페인</li><li><b>07</b>종합 제언</li></ol></section>
+    <section class="report-section" id="r01"><h2><em>01</em>Executive Summary</h2><div class="sumcards"><div class="sumcard"><span>분석 고객</span><b>200명</b></div><div class="sumcard"><span>누적 구매액</span><b>4억 8,548만원</b></div><div class="sumcard"><span>VIP 고객</span><b>34명 · 17%</b></div><div class="sumcard"><span>이탈 위험</span><b>28명 · 14%</b></div></div><p>일반 고객이 80명(40%)으로 가장 큰 그룹입니다. VIP는 평균 주문 31.2회·평균 구매액 6,622,647원으로 핵심 고객군이며, 이탈 위험 그룹은 평균 만족도 2.71점으로 낮아 구매 불편 개선과 복귀 캠페인을 함께 추진합니다.</p><div class="report-grid"><div class="report-card"><h3>전체 핵심 지표</h3><table><tbody><tr><th>총 주문 수</th><td>2,325회</td></tr><tr><th>평균 만족도</th><td>3.595 / 5점</td></tr><tr><th>1~2점 응답</th><td>35명 (17.5%)</td></tr></tbody></table></div><div class="report-card"><h3>보고 정보</h3><table><tbody><tr><th>보고자</th><td>김시원</td></tr><tr><th>보고 일시</th><td>2026년 10월 13일</td></tr><tr><th>분석 기준일</th><td>2025년 5월 15일</td></tr></tbody></table></div></div></section>
+    <section class="report-section" id="r02"><h2><em>02</em>분석 개요 및 등급 분류 기준</h2><p>고객데이터_200건 PDF 원자료의 구매 내역과 별점을 집계했습니다. 최근성은 분석 기준일과 마지막 구매일 사이의 경과 일수로 계산하고, 중복 등급 방지를 위해 VIP → 이탈 위험 → 우수 → 일반 순서로 판정했습니다.</p><table><thead><tr><th>고객 등급</th><th>분류 조건</th><th>판정 순서</th></tr></thead><tbody><tr><td>VIP</td><td>총 주문 15회 이상 AND 총 구매액 300만원 이상</td><td>1순위</td></tr><tr><td>이탈 위험</td><td>마지막 구매 후 180일 이상 AND 과거 주문 10회 이상</td><td>2순위</td></tr><tr><td>우수</td><td>앞선 두 조건에 해당하지 않고, 주문 8회 이상 OR 구매액 180만원 이상</td><td>3순위</td></tr><tr><td>일반</td><td>위 조건에 해당하지 않는 나머지 고객</td><td>잔여</td></tr></tbody></table></section>
+    <section class="report-section" id="r03"><h2><em>03</em>고객 등급별 분류 결과</h2><div class="report-grid"><div class="report-card"><h3>등급별 고객 비중 · 총 200명</h3><div class="report-bars"><div class="report-bar"><span>일반 고객</span><i><u style="--w:100%;--c:#91a4b4"></u></i><b>80명 · 40.0%</b></div><div class="report-bar"><span>우수 고객</span><i><u style="--w:72.5%;--c:#45c3a5"></u></i><b>58명 · 29.0%</b></div><div class="report-bar"><span>VIP 고객</span><i><u style="--w:42.5%;--c:#f4bc4b"></u></i><b>34명 · 17.0%</b></div><div class="report-bar"><span>이탈 위험</span><i><u style="--w:35%;--c:#f07862"></u></i><b>28명 · 14.0%</b></div></div></div><div class="report-card"><h3>카테고리별 누적 구매액</h3><div class="report-bars"><div class="report-bar"><span>패션</span><i><u style="--w:100%;--c:#f4bc4b"></u></i><b>1억 523만원</b></div><div class="report-bar"><span>뷰티</span><i><u style="--w:85.9%;--c:#45c3a5"></u></i><b>9,035만원</b></div><div class="report-bar"><span>가전·디지털</span><i><u style="--w:83.7%;--c:#45c3a5"></u></i><b>8,810만원</b></div><div class="report-bar"><span>식품</span><i><u style="--w:71.2%;--c:#45c3a5"></u></i><b>7,497만원</b></div><div class="report-bar"><span>생활·인테리어</span><i><u style="--w:66%;--c:#45c3a5"></u></i><b>6,944만원</b></div><div class="report-bar"><span>스포츠·레저</span><i><u style="--w:54.5%;--c:#45c3a5"></u></i><b>5,739만원</b></div></div></div></div><h3>고객 ID별 등급 결과 · 200명</h3><div class="customer-table"><table><thead><tr><th>고객 ID</th><th>고객명</th><th>고객 등급</th></tr></thead><tbody id="reportCustomerRows"></tbody></table></div></section>
+    <section class="report-section" id="r04"><h2><em>04</em>VIP·이탈 위험 고객 인구통계학적 비교 분석</h2><div class="report-grid"><div class="report-card"><h3>VIP 고객 · n=34</h3><table><tbody><tr><th>성별 분포</th><td>남 13명 (38.2%)　여 21명 (61.8%)</td></tr><tr><th>평균 연령</th><td>38.9세</td></tr><tr><th>지역 1위</th><td>경기 8명 (23.5%)</td></tr><tr><th>지역 2위</th><td>서울 7명 (20.6%)</td></tr></tbody></table><div class="report-bar"><span>남성</span><i><u style="--w:38.2%;--c:#8fb4c7"></u></i><b>38.2%</b></div><div class="report-bar"><span>여성</span><i><u style="--w:61.8%;--c:#f07862"></u></i><b>61.8%</b></div></div><div class="report-card"><h3>이탈 위험 고객 · n=28</h3><table><tbody><tr><th>성별 분포</th><td>남 14명 (50.0%)　여 14명 (50.0%)</td></tr><tr><th>평균 연령</th><td>37.6세</td></tr><tr><th>지역 1위</th><td>경기 11명 (39.3%)</td></tr><tr><th>지역 2위</th><td>서울 6명 (21.4%)</td></tr></tbody></table><div class="report-bar"><span>남성</span><i><u style="--w:50%;--c:#8fb4c7"></u></i><b>50.0%</b></div><div class="report-bar"><span>여성</span><i><u style="--w:50%;--c:#f07862"></u></i><b>50.0%</b></div></div></div></section>
+    <section class="report-section" id="r05"><h2><em>05</em>VIP 고객 심층 프로파일 및 충성도 강화 전략</h2><div class="report-grid"><div class="report-card"><h3>200명 PDF VIP 프로필 · n=34</h3><table><tbody><tr><th>평균 주문</th><td>31.2회</td></tr><tr><th>평균 구매액</th><td>6,622,647원</td></tr><tr><th>평균 만족도</th><td>4.38 / 5점</td></tr><tr><th>주요 특성</th><td>평균 38.9세 · 여성 61.8% · 경기·서울 중심</td></tr></tbody></table></div><div class="report-card"><h3>교재 참고 수치 · 별도 300명 실습 예시</h3><p>아래 표는 200명 PDF 실측과 혼합하지 않은 교재 예시입니다.</p><table><thead><tr><th>항목</th><th>VIP</th><th>이탈 위험</th></tr></thead><tbody><tr><th>총 인원</th><td>54명</td><td>40명</td></tr><tr><th>평균 연령</th><td>39.9세</td><td>36.0세</td></tr><tr><th>성별 남:여</th><td>27:27</td><td>21:19</td></tr><tr><th>평균 주문</th><td>27.7회</td><td>12.2회</td></tr><tr><th>평균 구매액</th><td>5,670,370원</td><td>1,957,500원</td></tr><tr><th>상위 거주지</th><td>서울·경기·인천</td><td>서울·경기·인천</td></tr></tbody></table></div></div><h3>VIP 혜택 제안 · 금전적 / 경험적 / 정서적</h3><div class="benefit-grid">
+     <article class="benefit-card"><h4>금전적 혜택</h4><p><b>누적 캐시백 프로그램</b><br>실행: 연 누적 500만원 이상 3%, 700만원 이상 5% 자동 적립<br>효과: 목표 구매를 유도해 이탈을 막고 추가 구매를 촉진</p><p><b>전용 선구매 할인권</b><br>실행: 출시 48시간 전 전용 구매 창구와 월 1회 10% 쿠폰 제공<br>효과: VIP 특권 인식과 신상품 초기 판매·재구매 향상</p><p><b>패밀리 포인트 공유제</b><br>실행: 가족 계정 최대 2명 연동, 첫 연동 5,000점 지급<br>효과: 가족 단위 신규 유입과 장기 이용 유도</p></article>
+     <article class="benefit-card"><h4>경험적 혜택</h4><p><b>프라이빗 쇼룸 초청</b><br>실행: 분기 1회 수도권 신상품 프리뷰, 한정 굿즈와 1:1 상담<br>효과: 고객과 브랜드의 유대 강화, SNS 확산</p><p><b>퍼스널 쇼퍼 서비스</b><br>실행: 월 1회 맞춤 큐레이션 리포트, 무료 포장·배송<br>효과: 개인화 경험을 높여 만족과 추천 전환 확대</p><p><b>라이프스타일 제휴권</b><br>실행: 호텔·레스토랑·공연 제휴, 반기 1회 우선 예약·초청<br>효과: 쇼핑몰을 라이프스타일 파트너로 인식</p></article>
+     <article class="benefit-card"><h4>정서적 혜택</h4><p><b>멤버십 키트 발송</b><br>실행: 등급 달성·갱신 시 엠보싱 카드·레터·굿즈 우편 발송<br>효과: 소속감과 개봉 경험을 통한 자발적 공유</p><p><b>VIP Advisory 자문단</b><br>실행: 신제품 사전 품평단 운영, 반영 사례를 뉴스레터로 공유<br>효과: 인정 욕구를 채우고 브랜드 옹호자로 전환</p><p><b>기념일 케어 서비스</b><br>실행: 생일·가입 기념일에 대표 명의 카드와 선물·할인 코드<br>효과: 고객을 기억하는 브랜드라는 정서적 유대 형성</p></article>
+    </div></section>
+    <section class="report-section" id="r06"><h2><em>06</em>이탈 위험 고객 Win-back LMS 캠페인</h2><div class="report-grid"><div class="report-card"><h3>현재 PDF 분석 · 이탈 위험 28명</h3><table><tbody><tr><th>평균 주문</th><td>15.1회</td></tr><tr><th>평균 구매액</th><td>2,406,786원</td></tr><tr><th>평균 별점</th><td>2.71 / 5점</td></tr><tr><th>평균 연령</th><td>37.6세</td></tr></tbody></table></div><div class="report-card"><h3>교재 예시 프로필 · 별도 40명</h3><p>평균 36.0세 · 주문 12.2회 · 구매액 1,957,500원 · 미접촉 약 22개월</p><p>교재 예시 데이터로, 제공된 200명 PDF 분석값과 별도입니다.</p></div></div><h3>재유치 메시지 예시 · 두 버전</h3><div class="report-grid"><div class="report-card"><h3>감성형 · 관계 회복</h3><p><b>1. 오랜만이에요, 보고 싶었어요</b><br>[고객명]님과 함께했던 시간이 그리웠어요. 웰컴백 선물을 준비했어요. <b>CTA: 선물 확인하기</b></p><p><b>2. 우리 다시 만나요</b><br>다시 찾아주신 기쁨을 담아 재회 선물을 마련했습니다. <b>CTA: 혜택 보기</b></p><p><b>3. [고객명]님을 위한 작은 안부</b><br>감사의 마음을 담은 쿠폰을 준비했어요. <b>CTA: 쿠폰 확인하기</b></p></div><div class="report-card"><h3>혜택형 · 즉시 행동 유도</h3><p><b>1. 48시간 한정 전용 쿠폰</b><br>복귀 고객 전용 30% 쿠폰입니다. 48시간 안에 사용하세요. <b>CTA: 쿠폰 받기</b></p><p><b>2. 이번 주 보너스 포인트</b><br>기간 내 재구매 시 추가 포인트를 드립니다. <b>CTA: 포인트 확인</b></p><p><b>3. 오늘까지 복귀 혜택</b><br>전용 할인과 추가 포인트가 오늘 종료됩니다. <b>CTA: 혜택 사용</b></p></div></div></section>
+    <section class="report-section" id="r07"><h2><em>07</em>종합 제언</h2><div class="report-grid"><div class="report-card"><h3>실행 우선순위</h3><table><tbody><tr><th>즉시</th><td>이탈 위험 고객 리뷰·문의 이력 확인, 불만 유형 분류</td></tr><tr><th>30일</th><td>감성형·혜택형 메시지 A/B 테스트</td></tr><tr><th>분기</th><td>VIP 혜택 파일럿과 비용 효과 평가</td></tr></tbody></table></div><div class="report-card"><h3>성과 측정 지표</h3><p>재구매율 · 고객당 구매액 · 만족도 · 쿠폰 사용률 · 캠페인 순매출 · 수신 거부율</p><p>일반·우수 138명은 재구매와 등급 상승 대상으로 관리하고, VIP 혜택은 비용 효과를 확인한 뒤 확대합니다.</p></div></div></section>
+   </main>
+  </div>
+ </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ★ 제출 전 본인 정보로 수정하세요 (사진은 같은 폴더의 photo.jpg) */
+const PROFILE={name:'김시원',role:'고객 데이터 분석',audience:'경영진 · 마케팅팀',date:'2026.10.13',source:'고객데이터_200건.pdf',photo:'photo.jpg'};
+
+const D=[{"cid":"C001","name":"채현훈","sex":"남","age":19,"region":"서울","join":"2019-05-27","last":"2023-05-19","orders":13,"spend":2060000,"cat":"스포츠·레저","sat":2,"review":"[자전거 헬멧] 배송 안내가 부정확해서 불편했어요. 개선을 기대합니다","grade":"이탈 위험","rec":727},{"cid":"C002","name":"구혜아","sex":"남","age":47,"region":"경기","join":"2019-06-22","last":"2023-04-08","orders":13,"spend":1500000,"cat":"생활·인테리어","sat":3,"review":"행거 주문했는데 평범해서 재구매는 고민 중이에요","grade":"이탈 위험","rec":768},{"cid":"C003","name":"양시찬","sex":"여","age":45,"region":"경기","join":"2019-07-12","last":"2023-04-18","orders":12,"spend":1780000,"cat":"패션","sat":2,"review":"기대했던 품질이 아니라서 실망이에요","grade":"이탈 위험","rec":758},{"cid":"C004","name":"차채민","sex":"여","age":50,"region":"인천","join":"2019-08-29","last":"2024-01-26","orders":11,"spend":1170000,"cat":"패션","sat":3,"review":"기대만큼은 아니지만 나쁘지 않아요","grade":"이탈 위험","rec":475},{"cid":"C005","name":"이건찬","sex":"여","age":33,"region":"서울","join":"2019-12-21","last":"2024-05-22","orders":2,"spend":800000,"cat":"패션","sat":1,"review":"[셔츠] 사용 몇 번 만에 마감이 벗겨졌어요","grade":"일반","rec":358},{"cid":"C006","name":"권지온","sex":"남","age":49,"region":"대전","join":"2020-01-17","last":"2024-08-04","orders":40,"spend":9010000,"cat":"스포츠·레저","sat":4,"review":"자전거 헬멧 주문했는데 주말마다 잘 사용하고 있어요. 다음에도 이용할게요","grade":"VIP","rec":284},{"cid":"C007","name":"조우연","sex":"여","age":27,"region":"강원","join":"2020-02-01","last":"2024-01-30","orders":4,"spend":2160000,"cat":"생활·인테리어","sat":4,"review":"[조명] 색상이 집과 잘 어울려요. 다음에도 이용할게요","grade":"우수","rec":471},{"cid":"C008","name":"채태민","sex":"남","age":33,"region":"경기","join":"2020-02-18","last":"2024-09-09","orders":11,"spend":3060000,"cat":"스포츠·레저","sat":3,"review":"등산 스틱 주문했는데 기대만큼은 아니지만 나쁘지 않아요","grade":"이탈 위험","rec":248},{"cid":"C009","name":"공성영","sex":"남","age":23,"region":"부산","join":"2020-04-05","last":"2024-10-24","orders":8,"spend":2840000,"cat":"식품","sat":5,"review":"[커피] 정기배송으로 바꿨어요. 주변에 추천했어요","grade":"우수","rec":203},{"cid":"C010","name":"최태아","sex":"여","age":37,"region":"부산","join":"2020-04-26","last":"2024-04-21","orders":14,"spend":1610000,"cat":"식품","sat":4,"review":"과일 구매 후기: 신선하게 도착했고 맛있어요","grade":"이탈 위험","rec":389},{"cid":"C011","name":"채수후","sex":"여","age":31,"region":"대전","join":"2020-05-15","last":"2024-09-01","orders":34,"spend":4700000,"cat":"가전·디지털","sat":5,"review":"보조배터리 주문했는데 성능이 기대 이상이에요. 다음에도 이용할게요","grade":"VIP","rec":256},{"cid":"C012","name":"원다호","sex":"남","age":19,"region":"부산","join":"2020-05-25","last":"2025-01-19","orders":12,"spend":2290000,"cat":"생활·인테리어","sat":5,"review":"[침구세트] 가격 대비 품질이 훌륭해요. 다음에도 이용할게요","grade":"우수","rec":116},{"cid":"C013","name":"배현연","sex":"남","age":29,"region":"서울","join":"2020-06-09","last":"2025-01-27","orders":29,"spend":6270000,"cat":"뷰티","sat":5,"review":"쿠션 주문했는데 용량 대비 가성비가 좋아요. 주변에 추천했어요","grade":"VIP","rec":108},{"cid":"C014","name":"배아준","sex":"남","age":32,"region":"제주","join":"2020-06-13","last":"2025-01-30","orders":7,"spend":240000,"cat":"패션","sat":5,"review":"세탁 후에도 모양이 유지돼요. 주변에 추천했어요","grade":"일반","rec":105},{"cid":"C015","name":"하건안","sex":"여","age":30,"region":"서울","join":"2020-07-01","last":"2024-11-26","orders":10,"spend":1480000,"cat":"식품","sat":5,"review":"밀키트 주문했는데 유통기한이 넉넉해서 좋아요. 주변에 추천했어요","grade":"우수","rec":170},{"cid":"C016","name":"공가온","sex":"남","age":38,"region":"부산","join":"2020-07-15","last":"2023-11-09","orders":13,"spend":3490000,"cat":"스포츠·레저","sat":5,"review":"[캠핑의자] 주말마다 잘 사용하고 있어요. 다음에도 이용할게요","grade":"이탈 위험","rec":553},{"cid":"C017","name":"구수아","sex":"남","age":34,"region":"서울","join":"2020-07-24","last":"2024-12-20","orders":6,"spend":2060000,"cat":"스포츠·레저","sat":4,"review":"내구성이 좋아 오래 쓸 것 같아요","grade":"우수","rec":146},{"cid":"C018","name":"구은민","sex":"여","age":35,"region":"경기","join":"2020-08-31","last":"2024-04-20","orders":4,"spend":1100000,"cat":"뷰티","sat":3,"review":"쿠션 주문했는데 무난하게 쓸 만합니다","grade":"일반","rec":390},{"cid":"C019","name":"배하영","sex":"여","age":44,"region":"서울","join":"2020-09-04","last":"2025-02-06","orders":7,"spend":950000,"cat":"뷰티","sat":3,"review":"기대만큼은 아니지만 나쁘지 않아요","grade":"일반","rec":98},{"cid":"C020","name":"민민빈","sex":"여","age":41,"region":"대구","join":"2020-09-14","last":"2025-02-20","orders":35,"spend":8820000,"cat":"가전·디지털","sat":4,"review":"공기청정기 주문했는데 배터리가 오래가서 만족해요. 믿고 사는 쇼핑몰이에요","grade":"VIP","rec":84},{"cid":"C021","name":"박은후","sex":"여","age":19,"region":"서울","join":"2020-09-14","last":"2024-04-05","orders":3,"spend":2260000,"cat":"패션","sat":4,"review":"셔츠 주문했는데 소재가 부드럽고 사이즈가 정확해요","grade":"우수","rec":405},{"cid":"C022","name":"장건준","sex":"남","age":24,"region":"광주","join":"2020-09-21","last":"2025-03-11","orders":10,"spend":1540000,"cat":"뷰티","sat":2,"review":"쿠션 주문했는데 택배 상자가 찌그러져 도착했어요. 당분간 이용이 망설여져요","grade":"우수","rec":65},{"cid":"C023","name":"최가원","sex":"여","age":19,"region":"서울","join":"2020-10-03","last":"2024-08-16","orders":4,"spend":1630000,"cat":"식품","sat":4,"review":"포장이 꼼꼼해서 안심이 됐어요. 믿고 사는 쇼핑몰이에요","grade":"일반","rec":272},{"cid":"C024","name":"황서담","sex":"여","age":32,"region":"광주","join":"2020-10-23","last":"2024-12-19","orders":30,"spend":5810000,"cat":"패션","sat":5,"review":"[니트] 핏이 정말 마음에 들어요. 다음에도 이용할게요","grade":"VIP","rec":147},{"cid":"C025","name":"심소훈","sex":"남","age":45,"region":"경남","join":"2020-10-25","last":"2025-05-11","orders":24,"spend":5120000,"cat":"가전·디지털","sat":4,"review":"[무선청소기] 디자인이 깔끔해서 인테리어에 잘 어울려요. 주변에 추천했어요","grade":"VIP","rec":4},{"cid":"C026","name":"공예결","sex":"여","age":32,"region":"부산","join":"2020-10-26","last":"2025-02-23","orders":10,"spend":2860000,"cat":"가전·디지털","sat":5,"review":"에어프라이어 주문했는데 디자인이 깔끔해서 인테리어에 잘 어울려요. 주변에 추천했어요","grade":"우수","rec":81},{"cid":"C027","name":"원연준","sex":"여","age":34,"region":"경기","join":"2020-10-27","last":"2025-01-27","orders":10,"spend":920000,"cat":"패션","sat":4,"review":"니트 구매 후기: 세탁 후에도 모양이 유지돼요. 주변에 추천했어요","grade":"우수","rec":108},{"cid":"C028","name":"엄유찬","sex":"여","age":38,"region":"강원","join":"2020-10-28","last":"2025-02-09","orders":17,"spend":5680000,"cat":"가전·디지털","sat":5,"review":"A/S 응대도 친절했어요. 적립 혜택도 만족스러워요","grade":"VIP","rec":95},{"cid":"C029","name":"남유호","sex":"남","age":25,"region":"부산","join":"2020-11-15","last":"2025-04-23","orders":5,"spend":1940000,"cat":"생활·인테리어","sat":5,"review":"색상이 집과 잘 어울려요. 주변에 추천했어요","grade":"우수","rec":22},{"cid":"C030","name":"류동후","sex":"여","age":38,"region":"광주","join":"2020-11-19","last":"2024-04-27","orders":7,"spend":2780000,"cat":"뷰티","sat":2,"review":"[립밤] 교환 절차가 복잡해서 포기했어요. 개선을 기대합니다","grade":"우수","rec":383},{"cid":"C031","name":"나진찬","sex":"여","age":32,"region":"대구","join":"2020-11-22","last":"2024-12-14","orders":6,"spend":910000,"cat":"뷰티","sat":4,"review":"선크림 구매 후기: 재구매 의사 100%입니다. 적립 혜택도 만족스러워요","grade":"일반","rec":152},{"cid":"C032","name":"조재인","sex":"남","age":23,"region":"대전","join":"2020-11-29","last":"2024-05-05","orders":5,"spend":1220000,"cat":"가전·디지털","sat":3,"review":"보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":375},{"cid":"C033","name":"백주원","sex":"여","age":28,"region":"경기","join":"2020-12-08","last":"2025-02-04","orders":5,"spend":1670000,"cat":"패션","sat":3,"review":"[원피스] 무난하게 쓸 만합니다","grade":"일반","rec":100},{"cid":"C034","name":"방진아","sex":"여","age":33,"region":"대구","join":"2020-12-08","last":"2025-01-21","orders":13,"spend":2440000,"cat":"뷰티","sat":4,"review":"샴푸 구매 후기: 향이 은은해서 계속 쓰게 돼요. 다음에도 이용할게요","grade":"우수","rec":114},{"cid":"C035","name":"강다현","sex":"남","age":35,"region":"경기","join":"2020-12-13","last":"2023-05-16","orders":10,"spend":1880000,"cat":"뷰티","sat":1,"review":"택배 상자가 찌그러져 도착했어요. 당분간 이용이 망설여져요","grade":"이탈 위험","rec":730},{"cid":"C036","name":"원주진","sex":"여","age":42,"region":"부산","join":"2021-01-08","last":"2024-12-21","orders":17,"spend":5850000,"cat":"뷰티","sat":5,"review":"샴푸 주문했는데 용량 대비 가성비가 좋아요. 적립 혜택도 만족스러워요","grade":"VIP","rec":145},{"cid":"C037","name":"하예경","sex":"여","age":28,"region":"부산","join":"2021-01-12","last":"2025-02-27","orders":5,"spend":960000,"cat":"가전·디지털","sat":3,"review":"공기청정기 주문했는데 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":77},{"cid":"C038","name":"전서영","sex":"여","age":53,"region":"서울","join":"2021-01-31","last":"2024-05-14","orders":12,"spend":4080000,"cat":"생활·인테리어","sat":1,"review":"문의 답변이 너무 늦어서 답답했어요","grade":"이탈 위험","rec":366},{"cid":"C039","name":"전혜온","sex":"남","age":23,"region":"대전","join":"2021-02-27","last":"2025-01-02","orders":7,"spend":1320000,"cat":"뷰티","sat":5,"review":"세럼 주문했는데 향이 은은해서 계속 쓰게 돼요. 믿고 사는 쇼핑몰이에요","grade":"일반","rec":133},{"cid":"C040","name":"백지람","sex":"여","age":43,"region":"울산","join":"2021-03-06","last":"2023-07-28","orders":12,"spend":1310000,"cat":"가전·디지털","sat":2,"review":"무선청소기 주문했는데 교환 절차가 복잡해서 포기했어요. 쿠폰만으로는 아쉬워요","grade":"이탈 위험","rec":657},{"cid":"C041","name":"문아현","sex":"남","age":25,"region":"서울","join":"2021-03-18","last":"2025-03-03","orders":4,"spend":1400000,"cat":"뷰티","sat":4,"review":"향이 은은해서 계속 쓰게 돼요. 다음에도 이용할게요","grade":"일반","rec":73},{"cid":"C042","name":"오아서","sex":"여","age":34,"region":"대구","join":"2021-03-20","last":"2025-01-06","orders":25,"spend":8170000,"cat":"뷰티","sat":5,"review":"피부 트러블 없이 잘 맞아요. 믿고 사는 쇼핑몰이에요","grade":"VIP","rec":129},{"cid":"C043","name":"오수준","sex":"여","age":26,"region":"경기","join":"2021-03-21","last":"2024-11-16","orders":2,"spend":880000,"cat":"뷰티","sat":4,"review":"발림성이 좋고 촉촉해요","grade":"일반","rec":180},{"cid":"C044","name":"남하경","sex":"여","age":19,"region":"인천","join":"2021-03-28","last":"2024-10-05","orders":1,"spend":1640000,"cat":"뷰티","sat":3,"review":"샴푸 주문했는데 기대만큼은 아니지만 나쁘지 않아요","grade":"일반","rec":222},{"cid":"C045","name":"한승서","sex":"남","age":44,"region":"서울","join":"2021-04-05","last":"2024-05-02","orders":3,"spend":2860000,"cat":"뷰티","sat":5,"review":"쿠션 주문했는데 발림성이 좋고 촉촉해요","grade":"우수","rec":378},{"cid":"C046","name":"황가람","sex":"여","age":34,"region":"경기","join":"2021-04-14","last":"2025-01-18","orders":8,"spend":900000,"cat":"스포츠·레저","sat":2,"review":"등산 스틱 구매 후기: 문의 답변이 너무 늦어서 답답했어요. 당분간 이용이 망설여져요","grade":"우수","rec":117},{"cid":"C047","name":"임아린","sex":"남","age":33,"region":"서울","join":"2021-04-21","last":"2024-04-04","orders":29,"spend":1540000,"cat":"가전·디지털","sat":2,"review":"환불 처리가 지연돼 불쾌했어요. 쿠폰만으로는 아쉬워요","grade":"이탈 위험","rec":406},{"cid":"C048","name":"천영윤","sex":"남","age":22,"region":"서울","join":"2021-04-24","last":"2025-02-10","orders":7,"spend":1550000,"cat":"뷰티","sat":4,"review":"선크림 구매 후기: 발림성이 좋고 촉촉해요. 적립 혜택도 만족스러워요","grade":"일반","rec":94},{"cid":"C049","name":"구하후","sex":"여","age":23,"region":"대구","join":"2021-04-26","last":"2024-12-19","orders":7,"spend":1340000,"cat":"뷰티","sat":3,"review":"샴푸 구매 후기: 무난하게 쓸 만합니다","grade":"일반","rec":147},{"cid":"C050","name":"송다찬","sex":"남","age":23,"region":"전북","join":"2021-05-04","last":"2025-04-30","orders":6,"spend":540000,"cat":"식품","sat":5,"review":"샐러드 주문했는데 신선하게 도착했고 맛있어요. 주변에 추천했어요","grade":"일반","rec":15},{"cid":"C051","name":"우유호","sex":"여","age":38,"region":"경기","join":"2021-05-05","last":"2024-06-23","orders":13,"spend":3310000,"cat":"뷰티","sat":3,"review":"[쿠션] 기대만큼은 아니지만 나쁘지 않아요","grade":"이탈 위험","rec":326},{"cid":"C052","name":"차은원","sex":"여","age":40,"region":"경기","join":"2021-06-01","last":"2025-04-22","orders":4,"spend":2050000,"cat":"패션","sat":2,"review":"[스니커즈] 배송이 예정보다 3일이나 늦었어요","grade":"우수","rec":23},{"cid":"C053","name":"김시윤","sex":"여","age":54,"region":"서울","join":"2021-06-02","last":"2025-04-05","orders":5,"spend":530000,"cat":"스포츠·레저","sat":4,"review":"[등산 스틱] 주말마다 잘 사용하고 있어요. 주변에 추천했어요","grade":"일반","rec":40},{"cid":"C054","name":"곽태담","sex":"여","age":38,"region":"경기","join":"2021-06-02","last":"2025-02-09","orders":36,"spend":8400000,"cat":"생활·인테리어","sat":4,"review":"침구세트 구매 후기: 마감이 튼튼하고 깔끔해요. 주변에 추천했어요","grade":"VIP","rec":95},{"cid":"C055","name":"김도율","sex":"여","age":34,"region":"서울","join":"2021-06-05","last":"2024-03-14","orders":12,"spend":2100000,"cat":"뷰티","sat":2,"review":"선크림 구매 후기: 배송이 예정보다 3일이나 늦었어요. 쿠폰만으로는 아쉬워요","grade":"이탈 위험","rec":427},{"cid":"C056","name":"나준솔","sex":"여","age":23,"region":"경기","join":"2021-06-07","last":"2025-01-02","orders":13,"spend":1330000,"cat":"가전·디지털","sat":3,"review":"평범해서 재구매는 고민 중이에요","grade":"우수","rec":133},{"cid":"C057","name":"주하원","sex":"여","age":40,"region":"서울","join":"2021-06-08","last":"2025-02-08","orders":7,"spend":670000,"cat":"식품","sat":2,"review":"[샐러드] 사진과 색상이 많이 달라요. 당분간 이용이 망설여져요","grade":"일반","rec":96},{"cid":"C058","name":"하성솔","sex":"남","age":32,"region":"서울","join":"2021-06-22","last":"2025-05-06","orders":10,"spend":2850000,"cat":"패션","sat":3,"review":"무난하게 쓸 만합니다","grade":"우수","rec":9},{"cid":"C059","name":"신현희","sex":"여","age":25,"region":"경기","join":"2021-06-24","last":"2024-11-25","orders":13,"spend":1140000,"cat":"뷰티","sat":5,"review":"[클렌저] 재구매 의사 100%입니다","grade":"우수","rec":171},{"cid":"C060","name":"성보경","sex":"여","age":44,"region":"인천","join":"2021-07-08","last":"2024-03-05","orders":12,"spend":3620000,"cat":"패션","sat":4,"review":"[원피스] 색감이 사진과 똑같아서 만족합니다. 믿고 사는 쇼핑몰이에요","grade":"이탈 위험","rec":436},{"cid":"C061","name":"심현준","sex":"여","age":51,"region":"경기","join":"2021-08-11","last":"2024-12-01","orders":7,"spend":490000,"cat":"생활·인테리어","sat":4,"review":"디퓨저 주문했는데 색상이 집과 잘 어울려요","grade":"일반","rec":165},{"cid":"C062","name":"양지빈","sex":"남","age":31,"region":"제주","join":"2021-08-29","last":"2025-04-14","orders":10,"spend":2230000,"cat":"패션","sat":3,"review":"기대만큼은 아니지만 나쁘지 않아요","grade":"우수","rec":31},{"cid":"C063","name":"배혜우","sex":"여","age":32,"region":"서울","join":"2021-09-11","last":"2024-08-25","orders":1,"spend":1670000,"cat":"가전·디지털","sat":5,"review":"[무선청소기] 배터리가 오래가서 만족해요. 적립 혜택도 만족스러워요","grade":"일반","rec":263},{"cid":"C064","name":"전아율","sex":"남","age":41,"region":"부산","join":"2021-09-24","last":"2024-01-26","orders":12,"spend":3950000,"cat":"스포츠·레저","sat":2,"review":"사진과 색상이 많이 달라요. 개선을 기대합니다","grade":"이탈 위험","rec":475},{"cid":"C065","name":"한아경","sex":"여","age":19,"region":"서울","join":"2021-10-05","last":"2025-03-31","orders":1,"spend":1430000,"cat":"가전·디지털","sat":5,"review":"스마트워치 구매 후기: 배터리가 오래가서 만족해요. 주변에 추천했어요","grade":"일반","rec":45},{"cid":"C066","name":"주건민","sex":"여","age":54,"region":"경남","join":"2021-10-14","last":"2025-01-04","orders":37,"spend":6610000,"cat":"식품","sat":3,"review":"배송은 빨랐는데 포장은 아쉬웠어요","grade":"VIP","rec":131},{"cid":"C067","name":"박주후","sex":"남","age":38,"region":"경기","join":"2021-10-18","last":"2025-01-26","orders":12,"spend":1590000,"cat":"스포츠·레저","sat":4,"review":"[캠핑의자] 그립감이 좋아서 만족해요","grade":"우수","rec":109},{"cid":"C068","name":"정우민","sex":"남","age":19,"region":"부산","join":"2021-10-31","last":"2025-02-02","orders":3,"spend":750000,"cat":"뷰티","sat":5,"review":"[세럼] 용량 대비 가성비가 좋아요","grade":"일반","rec":102},{"cid":"C069","name":"남서연","sex":"남","age":37,"region":"서울","join":"2021-11-07","last":"2025-04-04","orders":42,"spend":7810000,"cat":"생활·인테리어","sat":4,"review":"[러그] 공간 활용도가 아주 좋아요. 적립 혜택도 만족스러워요","grade":"VIP","rec":41},{"cid":"C070","name":"주지호","sex":"남","age":32,"region":"인천","join":"2021-11-14","last":"2025-03-25","orders":17,"spend":4190000,"cat":"가전·디지털","sat":3,"review":"보조배터리 구매 후기: 평범해서 재구매는 고민 중이에요","grade":"VIP","rec":51},{"cid":"C071","name":"안태희","sex":"여","age":30,"region":"강원","join":"2021-11-15","last":"2024-07-06","orders":22,"spend":2740000,"cat":"생활·인테리어","sat":4,"review":"조립이 쉬워서 금방 끝났어요","grade":"이탈 위험","rec":313},{"cid":"C072","name":"유영경","sex":"남","age":20,"region":"인천","join":"2021-11-17","last":"2024-08-19","orders":5,"spend":1130000,"cat":"가전·디지털","sat":1,"review":"무선청소기 구매 후기: 배송 안내가 부정확해서 불편했어요. 쿠폰만으로는 아쉬워요","grade":"일반","rec":269},{"cid":"C073","name":"배도람","sex":"남","age":30,"region":"서울","join":"2021-12-03","last":"2024-12-06","orders":2,"spend":1350000,"cat":"가전·디지털","sat":5,"review":"[이어폰] 설치가 쉽고 소음이 적어요. 믿고 사는 쇼핑몰이에요","grade":"일반","rec":160},{"cid":"C074","name":"박아연","sex":"남","age":35,"region":"경기","join":"2021-12-04","last":"2023-08-01","orders":21,"spend":2620000,"cat":"패션","sat":3,"review":"[재킷] 무난하게 쓸 만합니다","grade":"이탈 위험","rec":653},{"cid":"C075","name":"권다온","sex":"남","age":29,"region":"경기","join":"2021-12-18","last":"2025-04-23","orders":4,"spend":720000,"cat":"가전·디지털","sat":2,"review":"[이어폰] 택배 상자가 찌그러져 도착했어요","grade":"일반","rec":22},{"cid":"C076","name":"강유찬","sex":"여","age":40,"region":"부산","join":"2021-12-20","last":"2025-01-16","orders":19,"spend":5530000,"cat":"스포츠·레저","sat":4,"review":"러닝화 구매 후기: 운동할 때 땀 흡수가 잘 돼요. 주변에 추천했어요","grade":"VIP","rec":119},{"cid":"C077","name":"류지진","sex":"여","age":51,"region":"대구","join":"2021-12-21","last":"2025-01-31","orders":21,"spend":3570000,"cat":"뷰티","sat":4,"review":"립밤 주문했는데 재구매 의사 100%입니다. 주변에 추천했어요","grade":"VIP","rec":104},{"cid":"C078","name":"공나현","sex":"여","age":37,"region":"부산","join":"2022-01-01","last":"2023-06-04","orders":28,"spend":2250000,"cat":"패션","sat":3,"review":"기대만큼은 아니지만 나쁘지 않아요","grade":"이탈 위험","rec":711},{"cid":"C079","name":"심재희","sex":"여","age":28,"region":"울산","join":"2022-01-13","last":"2025-03-11","orders":3,"spend":2030000,"cat":"뷰티","sat":5,"review":"피부 트러블 없이 잘 맞아요. 주변에 추천했어요","grade":"우수","rec":65},{"cid":"C080","name":"이시린","sex":"남","age":31,"region":"제주","join":"2022-01-15","last":"2024-06-13","orders":4,"spend":1280000,"cat":"패션","sat":4,"review":"니트 주문했는데 색감이 사진과 똑같아서 만족합니다","grade":"일반","rec":336},{"cid":"C081","name":"지영아","sex":"남","age":32,"region":"서울","join":"2022-01-16","last":"2024-12-03","orders":9,"spend":1880000,"cat":"식품","sat":4,"review":"커피 구매 후기: 신선하게 도착했고 맛있어요. 적립 혜택도 만족스러워요","grade":"우수","rec":163},{"cid":"C082","name":"최다서","sex":"남","age":19,"region":"부산","join":"2022-01-18","last":"2024-03-10","orders":5,"spend":2740000,"cat":"식품","sat":3,"review":"배송은 빨랐는데 포장은 아쉬웠어요","grade":"우수","rec":431},{"cid":"C083","name":"천태린","sex":"여","age":31,"region":"대전","join":"2022-01-20","last":"2025-05-02","orders":7,"spend":2590000,"cat":"스포츠·레저","sat":3,"review":"자전거 헬멧 구매 후기: 보통이에요. 가격만큼은 하는 것 같아요","grade":"우수","rec":13},{"cid":"C084","name":"한서연","sex":"남","age":22,"region":"경기","join":"2022-01-23","last":"2023-07-08","orders":16,"spend":1000000,"cat":"패션","sat":3,"review":"원피스 주문했는데 무난하게 쓸 만합니다","grade":"이탈 위험","rec":677},{"cid":"C085","name":"안다훈","sex":"남","age":24,"region":"경기","join":"2022-01-25","last":"2025-04-14","orders":5,"spend":620000,"cat":"가전·디지털","sat":1,"review":"사진과 색상이 많이 달라요. 개선을 기대합니다","grade":"일반","rec":31},{"cid":"C086","name":"지지빈","sex":"남","age":32,"region":"서울","join":"2022-02-02","last":"2025-04-03","orders":12,"spend":1020000,"cat":"패션","sat":1,"review":"재킷 주문했는데 사진과 색상이 많이 달라요. 개선을 기대합니다","grade":"우수","rec":42},{"cid":"C087","name":"전가서","sex":"남","age":38,"region":"서울","join":"2022-02-14","last":"2025-02-03","orders":18,"spend":6160000,"cat":"패션","sat":5,"review":"소재가 부드럽고 사이즈가 정확해요. 다음에도 이용할게요","grade":"VIP","rec":101},{"cid":"C088","name":"엄재우","sex":"남","age":19,"region":"경기","join":"2022-02-15","last":"2024-06-05","orders":4,"spend":730000,"cat":"식품","sat":3,"review":"[밀키트] 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":344},{"cid":"C089","name":"황태결","sex":"남","age":44,"region":"서울","join":"2022-02-17","last":"2025-05-02","orders":35,"spend":6330000,"cat":"패션","sat":5,"review":"[스니커즈] 핏이 정말 마음에 들어요. 믿고 사는 쇼핑몰이에요","grade":"VIP","rec":13},{"cid":"C090","name":"심영희","sex":"여","age":26,"region":"서울","join":"2022-03-16","last":"2024-09-22","orders":5,"spend":2290000,"cat":"생활·인테리어","sat":5,"review":"[침구세트] 조립이 쉬워서 금방 끝났어요","grade":"우수","rec":235},{"cid":"C091","name":"채지결","sex":"여","age":31,"region":"인천","join":"2022-03-20","last":"2023-09-29","orders":12,"spend":3590000,"cat":"스포츠·레저","sat":4,"review":"러닝화 구매 후기: 내구성이 좋아 오래 쓸 것 같아요","grade":"이탈 위험","rec":594},{"cid":"C092","name":"남성원","sex":"여","age":35,"region":"경기","join":"2022-03-29","last":"2024-06-01","orders":5,"spend":1490000,"cat":"생활·인테리어","sat":5,"review":"조명 구매 후기: 색상이 집과 잘 어울려요. 주변에 추천했어요","grade":"일반","rec":348},{"cid":"C093","name":"지성호","sex":"여","age":45,"region":"경기","join":"2022-03-29","last":"2025-03-29","orders":31,"spend":7170000,"cat":"식품","sat":4,"review":"[커피] 간이 딱 맞아서 아이들도 잘 먹어요","grade":"VIP","rec":47},{"cid":"C094","name":"장다은","sex":"여","age":43,"region":"경기","join":"2022-03-30","last":"2025-03-16","orders":14,"spend":1230000,"cat":"스포츠·레저","sat":4,"review":"[수영복] 내구성이 좋아 오래 쓸 것 같아요. 주변에 추천했어요","grade":"우수","rec":60},{"cid":"C095","name":"곽소결","sex":"여","age":42,"region":"서울","join":"2022-04-01","last":"2024-12-29","orders":14,"spend":1580000,"cat":"식품","sat":5,"review":"정기배송으로 바꿨어요. 주변에 추천했어요","grade":"우수","rec":137},{"cid":"C096","name":"한하담","sex":"여","age":44,"region":"경기","join":"2022-04-02","last":"2024-10-13","orders":6,"spend":1630000,"cat":"뷰티","sat":3,"review":"평범해서 재구매는 고민 중이에요","grade":"일반","rec":214},{"cid":"C097","name":"심지온","sex":"여","age":25,"region":"강원","join":"2022-04-10","last":"2025-01-23","orders":7,"spend":1330000,"cat":"스포츠·레저","sat":4,"review":"주말마다 잘 사용하고 있어요. 주변에 추천했어요","grade":"일반","rec":112},{"cid":"C098","name":"양혜후","sex":"여","age":33,"region":"부산","join":"2022-04-13","last":"2024-11-28","orders":2,"spend":150000,"cat":"식품","sat":3,"review":"[과일] 평범해서 재구매는 고민 중이에요","grade":"일반","rec":168},{"cid":"C099","name":"황영온","sex":"여","age":19,"region":"서울","join":"2022-04-21","last":"2024-12-12","orders":4,"spend":650000,"cat":"생활·인테리어","sat":4,"review":"디퓨저 구매 후기: 가격 대비 품질이 훌륭해요","grade":"일반","rec":154},{"cid":"C100","name":"서건준","sex":"남","age":43,"region":"대전","join":"2022-04-21","last":"2023-07-07","orders":14,"spend":1970000,"cat":"스포츠·레저","sat":2,"review":"자전거 헬멧 구매 후기: 배송 안내가 부정확해서 불편했어요. 당분간 이용이 망설여져요","grade":"이탈 위험","rec":678},{"cid":"C101","name":"최서원","sex":"남","age":44,"region":"인천","join":"2022-04-22","last":"2025-04-22","orders":10,"spend":910000,"cat":"식품","sat":5,"review":"샐러드 주문했는데 유통기한이 넉넉해서 좋아요. 믿고 사는 쇼핑몰이에요","grade":"우수","rec":23},{"cid":"C102","name":"공성서","sex":"남","age":31,"region":"경기","join":"2022-05-06","last":"2025-02-20","orders":44,"spend":8800000,"cat":"가전·디지털","sat":5,"review":"A/S 응대도 친절했어요","grade":"VIP","rec":84},{"cid":"C103","name":"강현훈","sex":"남","age":23,"region":"서울","join":"2022-05-11","last":"2025-04-18","orders":4,"spend":1310000,"cat":"생활·인테리어","sat":3,"review":"디퓨저 구매 후기: 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":27},{"cid":"C104","name":"홍수준","sex":"남","age":36,"region":"전북","join":"2022-05-14","last":"2023-11-19","orders":12,"spend":2590000,"cat":"가전·디지털","sat":1,"review":"배송 안내가 부정확해서 불편했어요. 개선을 기대합니다","grade":"이탈 위험","rec":543},{"cid":"C105","name":"구태호","sex":"여","age":36,"region":"경기","join":"2022-05-19","last":"2024-12-14","orders":7,"spend":1290000,"cat":"생활·인테리어","sat":3,"review":"러그 주문했는데 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":152},{"cid":"C106","name":"우시민","sex":"남","age":43,"region":"경기","join":"2022-05-26","last":"2024-03-01","orders":12,"spend":4150000,"cat":"패션","sat":2,"review":"환불 처리가 지연돼 불쾌했어요. 개선을 기대합니다","grade":"이탈 위험","rec":440},{"cid":"C107","name":"남아영","sex":"여","age":38,"region":"서울","join":"2022-05-27","last":"2025-04-10","orders":26,"spend":3280000,"cat":"패션","sat":5,"review":"니트 구매 후기: 색감이 사진과 똑같아서 만족합니다","grade":"VIP","rec":35},{"cid":"C108","name":"류우호","sex":"남","age":22,"region":"서울","join":"2022-06-04","last":"2025-04-15","orders":7,"spend":1120000,"cat":"가전·디지털","sat":4,"review":"[무선청소기] 성능이 기대 이상이에요. 주변에 추천했어요","grade":"일반","rec":30},{"cid":"C109","name":"양수인","sex":"여","age":30,"region":"인천","join":"2022-06-06","last":"2025-02-05","orders":43,"spend":6620000,"cat":"뷰티","sat":4,"review":"클렌저 주문했는데 피부 트러블 없이 잘 맞아요. 주변에 추천했어요","grade":"VIP","rec":99},{"cid":"C110","name":"천태결","sex":"여","age":45,"region":"경기","join":"2022-06-07","last":"2024-01-04","orders":16,"spend":1170000,"cat":"뷰티","sat":4,"review":"[립밤] 향이 은은해서 계속 쓰게 돼요. 믿고 사는 쇼핑몰이에요","grade":"이탈 위험","rec":497},{"cid":"C111","name":"방다인","sex":"여","age":31,"region":"부산","join":"2022-06-10","last":"2025-03-11","orders":4,"spend":690000,"cat":"패션","sat":1,"review":"청바지 구매 후기: 택배 상자가 찌그러져 도착했어요","grade":"일반","rec":65},{"cid":"C112","name":"나하담","sex":"여","age":31,"region":"제주","join":"2022-06-22","last":"2024-07-04","orders":2,"spend":220000,"cat":"패션","sat":4,"review":"[셔츠] 색감이 사진과 똑같아서 만족합니다. 다음에도 이용할게요","grade":"일반","rec":315},{"cid":"C113","name":"공재결","sex":"남","age":50,"region":"경기","join":"2022-07-10","last":"2025-04-06","orders":11,"spend":1720000,"cat":"식품","sat":5,"review":"커피 주문했는데 신선하게 도착했고 맛있어요. 주변에 추천했어요","grade":"우수","rec":39},{"cid":"C114","name":"고동경","sex":"남","age":36,"region":"부산","join":"2022-07-24","last":"2024-04-06","orders":1,"spend":470000,"cat":"가전·디지털","sat":5,"review":"배터리가 오래가서 만족해요. 다음에도 이용할게요","grade":"일반","rec":404},{"cid":"C115","name":"송서서","sex":"남","age":46,"region":"서울","join":"2022-08-01","last":"2025-02-06","orders":4,"spend":130000,"cat":"식품","sat":3,"review":"커피 주문했는데 배송은 빨랐는데 포장은 아쉬웠어요","grade":"일반","rec":98},{"cid":"C116","name":"한혜연","sex":"남","age":33,"region":"서울","join":"2022-08-10","last":"2025-04-07","orders":4,"spend":60000,"cat":"패션","sat":2,"review":"[스니커즈] 사진과 색상이 많이 달라요. 개선을 기대합니다","grade":"일반","rec":38},{"cid":"C117","name":"공주호","sex":"여","age":26,"region":"경기","join":"2022-08-30","last":"2024-02-17","orders":3,"spend":2280000,"cat":"생활·인테리어","sat":3,"review":"배송은 빨랐는데 포장은 아쉬웠어요","grade":"우수","rec":453},{"cid":"C118","name":"강은빈","sex":"여","age":48,"region":"서울","join":"2022-09-03","last":"2023-03-29","orders":29,"spend":1840000,"cat":"뷰티","sat":5,"review":"립밤 주문했는데 피부 트러블 없이 잘 맞아요. 믿고 사는 쇼핑몰이에요","grade":"이탈 위험","rec":778},{"cid":"C119","name":"우하윤","sex":"남","age":32,"region":"경기","join":"2022-09-15","last":"2024-09-14","orders":7,"spend":70000,"cat":"패션","sat":4,"review":"[스니커즈] 세탁 후에도 모양이 유지돼요","grade":"일반","rec":243},{"cid":"C120","name":"오진솔","sex":"여","age":35,"region":"대전","join":"2022-10-05","last":"2024-12-18","orders":5,"spend":2210000,"cat":"패션","sat":3,"review":"재킷 구매 후기: 무난하게 쓸 만합니다","grade":"우수","rec":148},{"cid":"C121","name":"류나율","sex":"여","age":31,"region":"서울","join":"2022-10-08","last":"2025-03-27","orders":5,"spend":2250000,"cat":"뷰티","sat":2,"review":"세럼 주문했는데 문의 답변이 너무 늦어서 답답했어요","grade":"우수","rec":49},{"cid":"C122","name":"윤영린","sex":"여","age":39,"region":"울산","join":"2022-10-12","last":"2024-12-15","orders":3,"spend":2230000,"cat":"패션","sat":3,"review":"청바지 주문했는데 기대만큼은 아니지만 나쁘지 않아요","grade":"우수","rec":151},{"cid":"C123","name":"성다은","sex":"여","age":38,"region":"경기","join":"2022-10-27","last":"2025-01-30","orders":3,"spend":1830000,"cat":"뷰티","sat":4,"review":"립밤 주문했는데 재구매 의사 100%입니다. 믿고 사는 쇼핑몰이에요","grade":"우수","rec":105},{"cid":"C124","name":"양태은","sex":"여","age":24,"region":"경기","join":"2022-12-09","last":"2025-04-21","orders":13,"spend":2110000,"cat":"생활·인테리어","sat":4,"review":"[수납장] 조립이 쉬워서 금방 끝났어요","grade":"우수","rec":24},{"cid":"C125","name":"방태후","sex":"남","age":30,"region":"경남","join":"2022-12-13","last":"2024-10-23","orders":7,"spend":2460000,"cat":"패션","sat":4,"review":"[니트] 소재가 부드럽고 사이즈가 정확해요. 다음에도 이용할게요","grade":"우수","rec":204},{"cid":"C126","name":"권가율","sex":"여","age":38,"region":"경기","join":"2023-01-08","last":"2025-04-24","orders":38,"spend":5780000,"cat":"스포츠·레저","sat":5,"review":"[캠핑의자] 주말마다 잘 사용하고 있어요","grade":"VIP","rec":21},{"cid":"C127","name":"고수윤","sex":"남","age":33,"region":"경기","join":"2023-01-24","last":"2025-02-24","orders":32,"spend":8400000,"cat":"생활·인테리어","sat":4,"review":"[수납장] 공간 활용도가 아주 좋아요. 믿고 사는 쇼핑몰이에요","grade":"VIP","rec":80},{"cid":"C128","name":"김진훈","sex":"여","age":43,"region":"부산","join":"2023-01-28","last":"2024-07-08","orders":33,"spend":9090000,"cat":"식품","sat":5,"review":"커피 구매 후기: 포장이 꼼꼼해서 안심이 됐어요","grade":"VIP","rec":311},{"cid":"C129","name":"엄다연","sex":"남","age":47,"region":"경기","join":"2023-01-28","last":"2025-03-19","orders":31,"spend":8920000,"cat":"패션","sat":5,"review":"코디하기 좋은 기본템이에요","grade":"VIP","rec":57},{"cid":"C130","name":"신서후","sex":"남","age":28,"region":"경기","join":"2023-02-02","last":"2025-03-18","orders":2,"spend":1160000,"cat":"뷰티","sat":4,"review":"용량 대비 가성비가 좋아요","grade":"일반","rec":58},{"cid":"C131","name":"성우후","sex":"여","age":33,"region":"서울","join":"2023-02-05","last":"2025-03-14","orders":41,"spend":6760000,"cat":"가전·디지털","sat":5,"review":"에어프라이어 구매 후기: 설치가 쉽고 소음이 적어요. 믿고 사는 쇼핑몰이에요","grade":"VIP","rec":62},{"cid":"C132","name":"민민율","sex":"남","age":58,"region":"전북","join":"2023-02-11","last":"2024-12-01","orders":9,"spend":2670000,"cat":"생활·인테리어","sat":5,"review":"마감이 튼튼하고 깔끔해요","grade":"우수","rec":165},{"cid":"C133","name":"서현윤","sex":"남","age":46,"region":"전북","join":"2023-02-11","last":"2024-03-28","orders":1,"spend":1190000,"cat":"생활·인테리어","sat":5,"review":"행거 구매 후기: 조립이 쉬워서 금방 끝났어요. 적립 혜택도 만족스러워요","grade":"일반","rec":413},{"cid":"C134","name":"채하아","sex":"남","age":29,"region":"울산","join":"2023-02-12","last":"2025-02-21","orders":5,"spend":840000,"cat":"뷰티","sat":3,"review":"[쿠션] 평범해서 재구매는 고민 중이에요","grade":"일반","rec":83},{"cid":"C135","name":"문아훈","sex":"여","age":34,"region":"경기","join":"2023-02-13","last":"2025-03-30","orders":38,"spend":7010000,"cat":"생활·인테리어","sat":3,"review":"조명 구매 후기: 무난하게 쓸 만합니다","grade":"VIP","rec":46},{"cid":"C136","name":"차주은","sex":"여","age":19,"region":"서울","join":"2023-02-19","last":"2024-12-08","orders":4,"spend":1150000,"cat":"패션","sat":3,"review":"평범해서 재구매는 고민 중이에요","grade":"일반","rec":158},{"cid":"C137","name":"고채경","sex":"남","age":21,"region":"서울","join":"2023-02-23","last":"2024-06-24","orders":6,"spend":730000,"cat":"뷰티","sat":4,"review":"[샴푸] 재구매 의사 100%입니다. 주변에 추천했어요","grade":"일반","rec":325},{"cid":"C138","name":"최민담","sex":"남","age":41,"region":"서울","join":"2023-03-03","last":"2025-01-12","orders":14,"spend":1230000,"cat":"생활·인테리어","sat":3,"review":"수납장 구매 후기: 배송은 빨랐는데 포장은 아쉬웠어요","grade":"우수","rec":123},{"cid":"C139","name":"노혜진","sex":"남","age":19,"region":"경기","join":"2023-03-05","last":"2025-01-09","orders":2,"spend":1500000,"cat":"패션","sat":5,"review":"[스니커즈] 세탁 후에도 모양이 유지돼요. 주변에 추천했어요","grade":"일반","rec":126},{"cid":"C140","name":"한영준","sex":"여","age":33,"region":"부산","join":"2023-03-10","last":"2025-02-02","orders":11,"spend":2560000,"cat":"식품","sat":4,"review":"유통기한이 넉넉해서 좋아요. 다음에도 이용할게요","grade":"우수","rec":102},{"cid":"C141","name":"한다우","sex":"남","age":19,"region":"부산","join":"2023-03-19","last":"2025-01-28","orders":7,"spend":990000,"cat":"가전·디지털","sat":3,"review":"공기청정기 주문했는데 평범해서 재구매는 고민 중이에요","grade":"일반","rec":107},{"cid":"C142","name":"엄나준","sex":"여","age":34,"region":"강원","join":"2023-03-30","last":"2025-03-25","orders":34,"spend":6640000,"cat":"패션","sat":4,"review":"소재가 부드럽고 사이즈가 정확해요","grade":"VIP","rec":51},{"cid":"C143","name":"주혜연","sex":"남","age":25,"region":"전북","join":"2023-03-30","last":"2024-07-28","orders":7,"spend":680000,"cat":"스포츠·레저","sat":4,"review":"요가매트 구매 후기: 그립감이 좋아서 만족해요","grade":"일반","rec":291},{"cid":"C144","name":"박채린","sex":"여","age":32,"region":"서울","join":"2023-03-30","last":"2025-01-11","orders":31,"spend":7400000,"cat":"가전·디지털","sat":3,"review":"[스마트워치] 무난하게 쓸 만합니다","grade":"VIP","rec":124},{"cid":"C145","name":"권보담","sex":"남","age":23,"region":"충북","join":"2023-04-19","last":"2025-02-21","orders":5,"spend":1550000,"cat":"스포츠·레저","sat":4,"review":"요가매트 구매 후기: 그립감이 좋아서 만족해요. 적립 혜택도 만족스러워요","grade":"일반","rec":83},{"cid":"C146","name":"노도아","sex":"남","age":35,"region":"서울","join":"2023-04-19","last":"2024-01-07","orders":20,"spend":2500000,"cat":"식품","sat":2,"review":"닭가슴살 주문했는데 환불 처리가 지연돼 불쾌했어요. 개선을 기대합니다","grade":"이탈 위험","rec":494},{"cid":"C147","name":"유지영","sex":"여","age":33,"region":"경기","join":"2023-04-29","last":"2024-07-19","orders":11,"spend":1670000,"cat":"식품","sat":1,"review":"닭가슴살 구매 후기: 배송 안내가 부정확해서 불편했어요. 당분간 이용이 망설여져요","grade":"이탈 위험","rec":300},{"cid":"C148","name":"오유온","sex":"여","age":40,"region":"경기","join":"2023-05-22","last":"2025-04-08","orders":7,"spend":2840000,"cat":"식품","sat":2,"review":"[샐러드] 사용 몇 번 만에 마감이 벗겨졌어요. 개선을 기대합니다","grade":"우수","rec":37},{"cid":"C149","name":"공소경","sex":"남","age":27,"region":"서울","join":"2023-05-24","last":"2025-04-19","orders":4,"spend":1500000,"cat":"스포츠·레저","sat":2,"review":"수영복 구매 후기: 교환 절차가 복잡해서 포기했어요. 쿠폰만으로는 아쉬워요","grade":"일반","rec":26},{"cid":"C150","name":"송예연","sex":"여","age":33,"region":"광주","join":"2023-05-28","last":"2025-02-13","orders":10,"spend":980000,"cat":"패션","sat":4,"review":"스니커즈 구매 후기: 소재가 부드럽고 사이즈가 정확해요. 믿고 사는 쇼핑몰이에요","grade":"우수","rec":91},{"cid":"C151","name":"류은훈","sex":"여","age":30,"region":"대구","join":"2023-05-31","last":"2025-04-10","orders":7,"spend":1990000,"cat":"뷰티","sat":5,"review":"립밤 주문했는데 피부 트러블 없이 잘 맞아요. 적립 혜택도 만족스러워요","grade":"우수","rec":35},{"cid":"C152","name":"방재경","sex":"남","age":31,"region":"울산","join":"2023-06-06","last":"2025-01-27","orders":1,"spend":680000,"cat":"생활·인테리어","sat":3,"review":"디퓨저 구매 후기: 배송은 빨랐는데 포장은 아쉬웠어요","grade":"일반","rec":108},{"cid":"C153","name":"허준서","sex":"여","age":34,"region":"경기","join":"2023-06-15","last":"2025-01-27","orders":6,"spend":1830000,"cat":"식품","sat":5,"review":"샐러드 주문했는데 신선하게 도착했고 맛있어요. 적립 혜택도 만족스러워요","grade":"우수","rec":108},{"cid":"C154","name":"홍가율","sex":"여","age":21,"region":"광주","join":"2023-06-19","last":"2025-02-25","orders":2,"spend":210000,"cat":"패션","sat":2,"review":"문의 답변이 너무 늦어서 답답했어요","grade":"일반","rec":79},{"cid":"C155","name":"고준연","sex":"여","age":44,"region":"경기","join":"2023-06-29","last":"2024-12-24","orders":13,"spend":2360000,"cat":"패션","sat":3,"review":"기대만큼은 아니지만 나쁘지 않아요","grade":"우수","rec":142},{"cid":"C156","name":"박보호","sex":"여","age":47,"region":"광주","join":"2023-07-02","last":"2025-03-14","orders":22,"spend":3330000,"cat":"패션","sat":5,"review":"니트 주문했는데 코디하기 좋은 기본템이에요. 다음에도 이용할게요","grade":"VIP","rec":62},{"cid":"C157","name":"정현준","sex":"남","age":25,"region":"충북","join":"2023-07-02","last":"2025-02-28","orders":5,"spend":1600000,"cat":"가전·디지털","sat":3,"review":"[스마트워치] 평범해서 재구매는 고민 중이에요","grade":"일반","rec":76},{"cid":"C158","name":"최소안","sex":"여","age":34,"region":"서울","join":"2023-07-10","last":"2025-02-19","orders":13,"spend":2180000,"cat":"식품","sat":4,"review":"커피 주문했는데 유통기한이 넉넉해서 좋아요","grade":"우수","rec":85},{"cid":"C159","name":"노현후","sex":"남","age":27,"region":"대전","join":"2023-07-10","last":"2024-08-04","orders":5,"spend":1920000,"cat":"뷰티","sat":1,"review":"클렌저 구매 후기: 배송이 예정보다 3일이나 늦었어요. 개선을 기대합니다","grade":"우수","rec":284},{"cid":"C160","name":"문유빈","sex":"남","age":40,"region":"경기","join":"2023-07-10","last":"2025-04-11","orders":42,"spend":7830000,"cat":"패션","sat":5,"review":"청바지 구매 후기: 소재가 부드럽고 사이즈가 정확해요","grade":"VIP","rec":34},{"cid":"C161","name":"손아현","sex":"남","age":20,"region":"충북","join":"2023-07-14","last":"2024-12-31","orders":7,"spend":70000,"cat":"패션","sat":3,"review":"스니커즈 구매 후기: 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":135},{"cid":"C162","name":"주진결","sex":"남","age":34,"region":"서울","join":"2023-07-14","last":"2024-01-18","orders":3,"spend":2460000,"cat":"가전·디지털","sat":4,"review":"에어프라이어 주문했는데 배터리가 오래가서 만족해요","grade":"우수","rec":483},{"cid":"C163","name":"황진온","sex":"남","age":20,"region":"경기","join":"2023-07-20","last":"2025-02-20","orders":2,"spend":470000,"cat":"스포츠·레저","sat":3,"review":"보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":84},{"cid":"C164","name":"전수린","sex":"여","age":44,"region":"대전","join":"2023-07-31","last":"2024-12-29","orders":3,"spend":740000,"cat":"가전·디지털","sat":3,"review":"무선청소기 주문했는데 무난하게 쓸 만합니다","grade":"일반","rec":137},{"cid":"C165","name":"류우인","sex":"여","age":23,"region":"서울","join":"2023-08-03","last":"2025-04-11","orders":6,"spend":1040000,"cat":"가전·디지털","sat":3,"review":"공기청정기 주문했는데 기대만큼은 아니지만 나쁘지 않아요","grade":"일반","rec":34},{"cid":"C166","name":"문지훈","sex":"여","age":31,"region":"강원","join":"2023-09-10","last":"2025-01-22","orders":7,"spend":890000,"cat":"뷰티","sat":3,"review":"클렌저 주문했는데 무난하게 쓸 만합니다","grade":"일반","rec":113},{"cid":"C167","name":"노나경","sex":"남","age":19,"region":"부산","join":"2023-10-03","last":"2024-09-09","orders":6,"spend":1640000,"cat":"스포츠·레저","sat":4,"review":"자전거 헬멧 구매 후기: 그립감이 좋아서 만족해요. 적립 혜택도 만족스러워요","grade":"일반","rec":248},{"cid":"C168","name":"고건린","sex":"여","age":32,"region":"서울","join":"2023-10-07","last":"2025-04-18","orders":12,"spend":2440000,"cat":"뷰티","sat":4,"review":"[쿠션] 발림성이 좋고 촉촉해요. 적립 혜택도 만족스러워요","grade":"우수","rec":27},{"cid":"C169","name":"문서서","sex":"여","age":26,"region":"인천","join":"2023-10-28","last":"2025-03-26","orders":4,"spend":1350000,"cat":"가전·디지털","sat":3,"review":"평범해서 재구매는 고민 중이에요","grade":"일반","rec":50},{"cid":"C170","name":"조나희","sex":"남","age":38,"region":"경기","join":"2023-10-31","last":"2024-07-18","orders":4,"spend":1510000,"cat":"가전·디지털","sat":3,"review":"보조배터리 주문했는데 보통이에요. 가격만큼은 하는 것 같아요","grade":"일반","rec":301},{"cid":"C171","name":"하지연","sex":"여","age":22,"region":"서울","join":"2023-11-06","last":"2024-12-08","orders":3,"spend":270000,"cat":"패션","sat":3,"review":"니트 주문했는데 무난하게 쓸 만합니다","grade":"일반","rec":158},{"cid":"C172","name":"방유솔","sex":"남","age":24,"region":"경기","join":"2023-11-10","last":"2024-10-17","orders":11,"spend":2840000,"cat":"패션","sat":3,"review":"[재킷] 보통이에요. 가격만큼은 하는 것 같아요","grade":"이탈 위험","rec":210},{"cid":"C173","name":"김소원","sex":"남","age":36,"region":"서울","join":"2023-11-11","last":"2025-04-10","orders":11,"spend":970000,"cat":"가전·디지털","sat":5,"review":"[이어폰] A/S 응대도 친절했어요","grade":"우수","rec":35},{"cid":"C174","name":"진채후","sex":"여","age":46,"region":"인천","join":"2023-11-22","last":"2024-07-27","orders":5,"spend":2570000,"cat":"가전·디지털","sat":5,"review":"이어폰 구매 후기: 성능이 기대 이상이에요. 적립 혜택도 만족스러워요","grade":"우수","rec":292},{"cid":"C175","name":"한연온","sex":"여","age":25,"region":"광주","join":"2023-11-26","last":"2025-03-01","orders":2,"spend":1480000,"cat":"가전·디지털","sat":2,"review":"무선청소기 구매 후기: 교환 절차가 복잡해서 포기했어요","grade":"일반","rec":75},{"cid":"C176","name":"곽아연","sex":"남","age":41,"region":"서울","join":"2023-12-03","last":"2025-03-05","orders":4,"spend":730000,"cat":"생활·인테리어","sat":5,"review":"수납장 구매 후기: 조립이 쉬워서 금방 끝났어요","grade":"일반","rec":71},{"cid":"C177","name":"유가윤","sex":"여","age":26,"region":"경기","join":"2024-01-13","last":"2025-04-30","orders":2,"spend":1190000,"cat":"식품","sat":3,"review":"견과류 구매 후기: 무난하게 쓸 만합니다","grade":"일반","rec":15},{"cid":"C178","name":"노하현","sex":"남","age":26,"region":"경기","join":"2024-02-21","last":"2025-05-12","orders":14,"spend":1680000,"cat":"식품","sat":5,"review":"닭가슴살 구매 후기: 간이 딱 맞아서 아이들도 잘 먹어요. 다음에도 이용할게요","grade":"우수","rec":3},{"cid":"C179","name":"전민온","sex":"남","age":49,"region":"울산","join":"2024-02-23","last":"2025-04-17","orders":17,"spend":4470000,"cat":"뷰티","sat":3,"review":"세럼 주문했는데 평범해서 재구매는 고민 중이에요","grade":"VIP","rec":28},{"cid":"C180","name":"정준찬","sex":"남","age":41,"region":"서울","join":"2024-03-16","last":"2025-04-20","orders":2,"spend":960000,"cat":"식품","sat":5,"review":"신선하게 도착했고 맛있어요","grade":"일반","rec":25},{"cid":"C181","name":"원유영","sex":"여","age":42,"region":"서울","join":"2024-04-01","last":"2024-06-11","orders":9,"spend":1260000,"cat":"패션","sat":5,"review":"[청바지] 세탁 후에도 모양이 유지돼요. 다음에도 이용할게요","grade":"우수","rec":338},{"cid":"C182","name":"이지안","sex":"남","age":43,"region":"대구","join":"2024-04-04","last":"2025-02-08","orders":7,"spend":640000,"cat":"뷰티","sat":3,"review":"쿠션 구매 후기: 무난하게 쓸 만합니다","grade":"일반","rec":96},{"cid":"C183","name":"천주진","sex":"남","age":22,"region":"대구","join":"2024-04-25","last":"2024-11-29","orders":3,"spend":1600000,"cat":"가전·디지털","sat":1,"review":"문의 답변이 너무 늦어서 답답했어요. 당분간 이용이 망설여져요","grade":"일반","rec":167},{"cid":"C184","name":"신재훈","sex":"여","age":19,"region":"인천","join":"2024-04-26","last":"2024-07-13","orders":1,"spend":1380000,"cat":"뷰티","sat":5,"review":"[쿠션] 피부 트러블 없이 잘 맞아요. 다음에도 이용할게요","grade":"일반","rec":306},{"cid":"C185","name":"진우연","sex":"남","age":27,"region":"부산","join":"2024-04-29","last":"2025-02-28","orders":5,"spend":1240000,"cat":"생활·인테리어","sat":1,"review":"조명 구매 후기: 사진과 색상이 많이 달라요. 당분간 이용이 망설여져요","grade":"일반","rec":76},{"cid":"C186","name":"박하준","sex":"남","age":39,"region":"경남","join":"2024-05-05","last":"2025-04-09","orders":44,"spend":7590000,"cat":"식품","sat":5,"review":"샐러드 구매 후기: 간이 딱 맞아서 아이들도 잘 먹어요","grade":"VIP","rec":36},{"cid":"C187","name":"천시온","sex":"남","age":31,"region":"강원","join":"2024-05-26","last":"2024-09-15","orders":7,"spend":2530000,"cat":"스포츠·레저","sat":5,"review":"내구성이 좋아 오래 쓸 것 같아요. 믿고 사는 쇼핑몰이에요","grade":"우수","rec":242},{"cid":"C188","name":"공승인","sex":"남","age":43,"region":"인천","join":"2024-05-31","last":"2025-05-01","orders":14,"spend":1410000,"cat":"패션","sat":4,"review":"[스니커즈] 코디하기 좋은 기본템이에요. 다음에도 이용할게요","grade":"우수","rec":14},{"cid":"C189","name":"공동율","sex":"남","age":41,"region":"부산","join":"2024-06-01","last":"2024-08-19","orders":5,"spend":920000,"cat":"생활·인테리어","sat":4,"review":"조명 주문했는데 가격 대비 품질이 훌륭해요. 주변에 추천했어요","grade":"일반","rec":269},{"cid":"C190","name":"권재온","sex":"여","age":46,"region":"제주","join":"2024-07-07","last":"2024-11-30","orders":3,"spend":1030000,"cat":"뷰티","sat":3,"review":"[선크림] 기대만큼은 아니지만 나쁘지 않아요","grade":"일반","rec":166},{"cid":"C191","name":"문동율","sex":"남","age":32,"region":"서울","join":"2024-07-24","last":"2025-04-29","orders":13,"spend":1260000,"cat":"패션","sat":2,"review":"재킷 구매 후기: 기대했던 품질이 아니라서 실망이에요. 당분간 이용이 망설여져요","grade":"우수","rec":16},{"cid":"C192","name":"최아린","sex":"남","age":32,"region":"서울","join":"2024-08-22","last":"2025-02-07","orders":12,"spend":1770000,"cat":"패션","sat":4,"review":"코디하기 좋은 기본템이에요. 주변에 추천했어요","grade":"우수","rec":97},{"cid":"C193","name":"권혜현","sex":"여","age":22,"region":"경기","join":"2024-09-02","last":"2024-11-02","orders":5,"spend":1500000,"cat":"생활·인테리어","sat":1,"review":"침구세트 주문했는데 환불 처리가 지연돼 불쾌했어요. 쿠폰만으로는 아쉬워요","grade":"일반","rec":194},{"cid":"C194","name":"황가희","sex":"여","age":36,"region":"울산","join":"2024-09-02","last":"2024-11-25","orders":2,"spend":680000,"cat":"패션","sat":4,"review":"색감이 사진과 똑같아서 만족합니다","grade":"일반","rec":171},{"cid":"C195","name":"심보린","sex":"여","age":36,"region":"부산","join":"2024-10-03","last":"2025-05-13","orders":37,"spend":8050000,"cat":"식품","sat":5,"review":"밀키트 구매 후기: 정기배송으로 바꿨어요. 다음에도 이용할게요","grade":"VIP","rec":2},{"cid":"C196","name":"유동인","sex":"여","age":35,"region":"강원","join":"2024-10-13","last":"2025-02-03","orders":5,"spend":1320000,"cat":"패션","sat":3,"review":"[셔츠] 평범해서 재구매는 고민 중이에요","grade":"일반","rec":101},{"cid":"C197","name":"김진린","sex":"남","age":37,"region":"서울","join":"2024-10-23","last":"2025-01-23","orders":3,"spend":1040000,"cat":"생활·인테리어","sat":5,"review":"디퓨저 구매 후기: 공간 활용도가 아주 좋아요","grade":"일반","rec":112},{"cid":"C198","name":"임시윤","sex":"남","age":31,"region":"서울","join":"2024-11-10","last":"2025-01-13","orders":9,"spend":1740000,"cat":"뷰티","sat":5,"review":"선크림 주문했는데 발림성이 좋고 촉촉해요","grade":"우수","rec":122},{"cid":"C199","name":"윤나안","sex":"남","age":31,"region":"서울","join":"2024-11-11","last":"2025-02-24","orders":3,"spend":440000,"cat":"식품","sat":3,"review":"닭가슴살 구매 후기: 무난하게 쓸 만합니다","grade":"일반","rec":80},{"cid":"C200","name":"진아준","sex":"남","age":38,"region":"서울","join":"2025-01-12","last":"2025-03-27","orders":2,"spend":350000,"cat":"스포츠·레저","sat":4,"review":"[러닝화] 운동할 때 땀 흡수가 잘 돼요. 적립 혜택도 만족스러워요","grade":"일반","rec":49}];
+const BASE=new Date('2025-05-15');
+const GR=['VIP','우수','일반','이탈 위험'];
+const GC={'VIP':'#f4bc4b','우수':'#45c3a5','일반':'#91a4b4','이탈 위험':'#f07862'};
+const $=(s,r)=>(r||document).querySelector(s);
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sum=a=>a.reduce((s,x)=>s+x,0), avg=a=>a.length?sum(a)/a.length:0;
+const man=v=>Math.round(v/1e4).toLocaleString('en-US')+'만';
+const big=v=>v>=1e8?(v/1e8).toFixed(2)+'억':Math.round(v/1e4).toLocaleString('en-US')+'만';
+const stars=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+const ageBand=a=>a<20?'10대':a<30?'20대':a<40?'30대':a<50?'40대':'50대+';
+const BANDS=['10대','20대','30대','40대','50대+'];
+
+const S={grade:'all',sel:null,q:'',st:'이탈 위험',msg:'emo',first:true};
+const F=()=>S.grade==='all'?D:D.filter(d=>d.grade===S.grade);
+const byG=g=>D.filter(d=>d.grade===g);
+
+/* ---------- 프로필 ---------- */
+function initProfile(){
+  $('#pName').textContent=PROFILE.name;$('#pRole').textContent=PROFILE.role;
+  $('#pDept').textContent=PROFILE.audience;
+  $('#pCourse').textContent=PROFILE.date;
+  $('#pTask').textContent=PROFILE.source;
+  const img=$('#photo'),box=$('#photoBox');
+  img.onload=()=>box.classList.add('has');img.onerror=()=>box.classList.remove('has');
+  img.src=PROFILE.photo;
+}
+
+/* ---------- 헤더 필터 ---------- */
+function renderSeg(){
+  const seg=$('#seg');seg.innerHTML='';
+  const items=[['all','전체',D.length,'#8395b0']].concat(GR.map(g=>[g,g,byG(g).length,GC[g]]));
+  items.forEach(([k,n,c,col])=>{
+    const b=document.createElement('button');b.style.setProperty('--gc',col);if(S.grade===k)b.className='on';
+    b.innerHTML='<b><i></i>'+n+'</b><span>'+c+'명</span>';
+    b.onclick=()=>setGrade(S.grade===k?'all':k);seg.appendChild(b);
+  });
+}
+function setGrade(g){S.grade=g;if(g!=='all'){S.st=g;}S.sel=null;renderAll();}
+
+/* ---------- KPI (count-up) ---------- */
+const cur={};
+function countUp(id,to,fmt,dur){
+  const e=$('#'+id),from=cur[id]||0;cur[id]=to;const t0=performance.now();dur=dur||900;
+  cancelAnimationFrame(e._r);
+  (function step(t){const p=Math.min(1,(t-t0)/dur),k=1-Math.pow(1-p,3);e.innerHTML=fmt(from+(to-from)*k);if(p<1)e._r=requestAnimationFrame(step)})(t0);
+}
+function renderKPI(){
+  const f=F(),n=f.length,rev=sum(f.map(d=>d.spend));
+  $('#kl1').textContent=S.grade==='all'?'CUSTOMERS':'CUSTOMERS · '+S.grade;
+  countUp('k1',n,v=>Math.round(v)+'<small>명</small>');
+  $('#k1s').textContent=S.grade==='all'?'가입 2019.03 ~ 2025.05 · 기준일 2025.05.15':'전체 200명 중 '+(n/D.length*100).toFixed(1)+'%';
+  countUp('k2',rev,v=>big(v)+'<small>원</small>');
+  $('#k2s').textContent='1인 평균 '+man(rev/n)+'원 · 전체 매출의 '+(rev/sum(D.map(d=>d.spend))*100).toFixed(1)+'%';
+  countUp('k3',avg(f.map(d=>d.orders)),v=>v.toFixed(1)+'<small>회</small>');
+  $('#k3s').textContent='평균 최근 구매 '+Math.round(avg(f.map(d=>d.rec)))+'일 전';
+  const sat=avg(f.map(d=>d.sat));
+  countUp('k4',sat,v=>v.toFixed(2)+'<small>/ 5</small>');
+  $('#k4s').textContent='4점 이상 '+Math.round(f.filter(d=>d.sat>=4).length/n*100)+'% · 2점 이하 '+Math.round(f.filter(d=>d.sat<=2).length/n*100)+'%';
+  const dm=f.filter(d=>d.grade==='이탈 위험');
+  countUp('k5',dm.length,v=>Math.round(v)+'<small>명</small>');
+  $('#k5s').textContent=dm.length?('해당 집단의 '+(dm.length/n*100).toFixed(1)+'% · 평균 '+(avg(dm.map(d=>d.rec))/30.4).toFixed(1)+'개월 미구매'):'해당 등급 고객 없음';
+}
+
+/* ---------- 도넛 + 범례 ---------- */
+function renderDonut(){
+  const svg=$('#donut');svg.innerHTML='';
+  const R=66,C=2*Math.PI*R,cx=88,cy=88;
+  el('circle',{class:'bg',cx,cy,r:R},svg);
+  let off=0;const tot=D.length;
+  GR.forEach(g=>{
+    const n=byG(g).length,len=n/tot*C,gap=3;
+    const c=el('circle',{class:'seg',cx,cy,r:R,stroke:GC[g],'stroke-dasharray':'0 '+C,'stroke-dashoffset':-off,'stroke-linecap':'butt'},svg);
+    c.style.opacity=(S.grade==='all'||S.grade===g)?1:.22;
+    if(S.grade===g)c.setAttribute('stroke-width',30);
+    c.addEventListener('click',()=>setGrade(S.grade===g?'all':g));
+    const t=el('title',{},c);t.textContent=g+' '+n+'명';
+    setTimeout(()=>c.setAttribute('stroke-dasharray',Math.max(0,len-gap)+' '+(C-len+gap)),S.first?120:10);
+    off+=len;
+  });
+  $('#dTot').textContent=S.grade==='all'?D.length:byG(S.grade).length;
+  $('#dLab').textContent=S.grade==='all'?'전체 고객':S.grade+' 고객';
+  const lg=$('#legend');lg.innerHTML='';const totRev=sum(D.map(d=>d.spend));
+  GR.forEach(g=>{
+    const a=byG(g),rev=sum(a.map(d=>d.spend)),row=document.createElement('div');
+    row.className='lg'+(S.grade===g?' on':'');row.style.setProperty('--gc',GC[g]);
+    row.innerHTML='<i></i><span class="n">'+g+'</span><span class="c">'+a.length+'<small>'+(a.length/D.length*100).toFixed(0)+'%</small></span>'+
+      '<div class="bar"><u data-w="'+(a.length/D.length*100*2.2)+'"></u></div><div class="lrv">매출 '+big(rev)+'원 · 비중 '+(rev/totRev*100).toFixed(1)+'%</div>';
+    row.onclick=()=>setGrade(S.grade===g?'all':g);lg.appendChild(row);
+    setTimeout(()=>{const u=$('u',row);u.style.width=Math.min(100,+u.dataset.w)+'%'},S.first?300:20);
+  });
+}
+
+/* ---------- 리스트 ---------- */
+function renderList(){
+  let f=F();const q=S.q.trim().toLowerCase();
+  if(q)f=f.filter(d=>d.name.toLowerCase().includes(q)||d.cid.toLowerCase().includes(q));
+  $('#listTag').textContent=f.length+'명';
+  const box=$('#clist');box.innerHTML='';
+  f.slice().sort((a,b)=>b.spend-a.spend).forEach(d=>{
+    const r=document.createElement('div');r.className='crow'+(S.sel===d.cid?' sel':'');r.dataset.id=d.cid;r.style.setProperty('--gc',GC[d.grade]);
+    r.innerHTML='<span class="id">'+d.cid+'</span><span class="nm">'+esc(d.name)+'</span><span class="gchip">'+d.grade+'</span><span class="o">'+d.orders+'회</span><span class="sp2">'+man(d.spend)+'</span><span class="st">'+'★'.repeat(d.sat)+'</span>';
+    r.onclick=()=>selectCust(d.cid);box.appendChild(r);
+  });
+  if(!f.length)box.innerHTML='<div style="padding:30px 0;text-align:center;color:var(--muted);font-size:12px">검색 결과가 없습니다</div>';
+}
+function selectCust(id){S.sel=S.sel===id?null:id;
+  if(S.sel){const d=D.find(x=>x.cid===id);if(S.grade!=='all'&&d.grade!==S.grade)S.grade='all';}
+  renderAll(true);
+  const r=$('.crow.sel');if(r)r.scrollIntoView({block:'nearest'});
+}
+
+/* ---------- 산점도 ---------- */
+function renderScatter(){
+  const svg=$('#sc');svg.innerHTML='';
+  const W=848,H=318,L=62,Rr=20,T=14,B=40,xmax=46,ymax=Math.ceil(Math.max(...D.map(d=>d.spend))/2e6)*2e6;
+  const X=v=>L+(W-L-Rr)*v/xmax,Y=v=>T+(H-T-B)*(1-v/ymax);
+  const defs=el('defs',{},svg);
+  const gz=el('linearGradient',{id:'vz',x1:'0',y1:'0',x2:'0',y2:'1'},defs);el('stop',{offset:'0','stop-color':'#fbbf24','stop-opacity':.16},gz);el('stop',{offset:'1','stop-color':'#fbbf24','stop-opacity':.03},gz);
+  for(let i=0;i<=5;i++){const v=ymax/5*i,y=Y(v);
+    el('line',{x1:L,y1:y,x2:W-Rr,y2:y,stroke:'rgba(99,179,237,.10)','stroke-dasharray':i?'3 5':'0'},svg);
+    const t=el('text',{class:'axis',x:L-8,y:y+3.5,'text-anchor':'end'},svg);t.textContent=man(v);}
+  for(let v=0;v<=xmax;v+=5){const x=X(v);
+    el('line',{x1:x,y1:T,x2:x,y2:H-B,stroke:'rgba(99,179,237,.06)'},svg);
+    const t=el('text',{class:'axis',x:x,y:H-B+16,'text-anchor':'middle'},svg);t.textContent=v;}
+  const xt=el('text',{class:'axt',x:(L+W-Rr)/2,y:H-6,'text-anchor':'middle'},svg);xt.textContent='총 주문 횟수 (F · 빈도)';
+  const yt=el('text',{class:'axt',transform:'translate(14 '+((T+H-B)/2)+') rotate(-90)','text-anchor':'middle'},svg);yt.textContent='총 구매액 (M · 금액)';
+  // VIP zone
+  el('rect',{x:X(15),y:Y(ymax),width:X(xmax)-X(15),height:Y(3e6)-Y(ymax),fill:'url(#vz)',stroke:'#fbbf24','stroke-opacity':.45,'stroke-dasharray':'5 4',rx:6},svg);
+  const vl=el('text',{x:X(15)+10,y:Y(ymax)+16,style:'font:700 10.5px Pretendard Variable,Pretendard,sans-serif;fill:#fbbf24;opacity:.85'},svg);vl.textContent='VIP 영역 · 주문 15회↑ · 300만원↑';
+  // 우수 기준선
+  el('line',{x1:X(8),y1:Y(0),x2:X(8),y2:Y(3e6),stroke:'#38bdf8','stroke-opacity':.35,'stroke-dasharray':'2 4'},svg);
+  el('line',{x1:X(0),y1:Y(1.8e6),x2:X(15),y2:Y(1.8e6),stroke:'#38bdf8','stroke-opacity':.35,'stroke-dasharray':'2 4'},svg);
+  const g1=el('text',{x:X(8)+5,y:Y(0)-6,style:'font:600 9.5px Pretendard Variable,Pretendard,sans-serif;fill:#38bdf8;opacity:.7'},svg);g1.textContent='8회';
+  const g2=el('text',{x:X(0)+6,y:Y(1.8e6)-5,style:'font:600 9.5px Pretendard Variable,Pretendard,sans-serif;fill:#38bdf8;opacity:.7'},svg);g2.textContent='180만원';
+  // dots (dim first)
+  const act=d=>S.grade==='all'||d.grade===S.grade;
+  const order=D.slice().sort((a,b)=>act(a)-act(b));
+  const tip=el('g',{style:'pointer-events:none',opacity:0},svg);
+  order.forEach((d,i)=>{
+    const a=act(d);
+    const c=el('circle',{class:'dot'+(S.first?' intro':''),cx:X(d.orders),cy:Y(d.spend),r:a?5.2:3.6,fill:GC[d.grade],'fill-opacity':a?.85:.12,stroke:a?'#060a14':'none','stroke-width':1,opacity:1},svg);
+    if(S.first)c.style.animationDelay=(i*4)+'ms';
+    if(a){
+      c.addEventListener('click',()=>selectCust(d.cid));
+      c.addEventListener('mouseenter',()=>showTip(d,X(d.orders),Y(d.spend),tip,W));
+      c.addEventListener('mouseleave',()=>tip.setAttribute('opacity',0));
+    }
+  });
+  svg.appendChild(tip);
+  if(S.sel){const d=D.find(x=>x.cid===S.sel);
+    const g=el('g',{transform:'translate('+X(d.orders)+' '+Y(d.spend)+')',style:'pointer-events:none'},svg);
+    const p=el('circle',{r:9,fill:'none',stroke:GC[d.grade],'stroke-width':2,opacity:.8},g);
+    el('animate',{attributeName:'r',values:'7;17;7',dur:'1.8s',repeatCount:'indefinite'},p);
+    el('animate',{attributeName:'opacity',values:'.9;0;.9',dur:'1.8s',repeatCount:'indefinite'},p);
+    el('circle',{r:8.5,fill:'none',stroke:'#fff','stroke-width':2},g);
+  }
+  const sc=$('#selcard');
+  if(S.sel){const d=D.find(x=>x.cid===S.sel);sc.style.display='block';
+    sc.innerHTML='<div class="t"><b>'+esc(d.name)+'</b><span class="gchip" style="--gc:'+GC[d.grade]+'">'+d.grade+'</span><span style="margin-left:auto;font:600 10.5px var(--mono);color:var(--dim)">'+d.cid+'</span></div>'+
+     '<div class="g"><span>R 최근 구매</span><span>'+d.rec+'일 전</span><span>F 주문 횟수</span><span>'+d.orders+'회</span><span>M 총 구매액</span><span>'+d.spend.toLocaleString('en-US')+'원</span><span>만족도</span><span>'+stars(d.sat)+'</span><span>지역 · 연령</span><span>'+d.region+' · '+d.age+'세 '+d.sex+'</span></div>';
+  }else sc.style.display='none';
+}
+function showTip(d,x,y,tip,W){
+  tip.innerHTML='';const w=170,h=52;let tx=x+12,ty=y-h-8;if(tx+w>W-6)tx=x-w-12;if(ty<4)ty=y+12;
+  el('rect',{x:tx,y:ty,width:w,height:h,rx:8,fill:'#080e1a',stroke:'rgba(99,179,237,.35)'},tip);
+  const t1=el('text',{x:tx+10,y:ty+18,style:'font:800 12px Pretendard Variable,Pretendard,sans-serif;fill:#e6edf7'},tip);t1.textContent=d.name+'  ·  '+d.grade;
+  const t2=el('text',{x:tx+10,y:ty+34,style:'font:600 10.5px JetBrains Mono,monospace;fill:#8395b0'},tip);t2.textContent=d.orders+'회  ·  '+d.spend.toLocaleString('en-US')+'원';
+  const t3=el('text',{x:tx+10,y:ty+46,style:'font:600 10px Pretendard Variable,Pretendard,sans-serif;fill:#fbbf24'},tip);t3.textContent=stars(d.sat)+'  ·  최근 '+d.rec+'일 전';
+  tip.setAttribute('opacity',1);
+}
+
+/* ---------- 지역 ---------- */
+function renderRegion(){
+  const svg=$('#regSvg');svg.innerHTML='';const f=F(),m={};
+  f.forEach(d=>{(m[d.region]=m[d.region]||{n:0,r:0});m[d.region].n++;m[d.region].r+=d.spend});
+  const arr=Object.entries(m).sort((a,b)=>b[1].n-a[1].n).slice(0,7),mx=Math.max(1,...arr.map(a=>a[1].n));
+  const col=S.grade==='all'?'#38bdf8':GC[S.grade];
+  const defs=el('defs',{},svg);const gr=el('linearGradient',{id:'rg',x1:'0',x2:'1'},defs);el('stop',{offset:0,'stop-color':col,'stop-opacity':.45},gr);el('stop',{offset:1,'stop-color':col},gr);
+  arr.forEach(([k,v],i)=>{const y=6+i*32;
+    const t=el('text',{class:'lbl',x:0,y:y+17},svg);t.textContent=k;
+    el('rect',{x:46,y:y+4,width:230,height:16,rx:5,fill:'rgba(99,179,237,.07)'},svg);
+    const b=el('rect',{class:'rbar',x:46,y:y+4,width:0,height:16,rx:5,fill:'url(#rg)'},svg);
+    setTimeout(()=>b.setAttribute('width',230*v.n/mx),S.first?400+i*60:20);
+    const c=el('text',{class:'val',x:46+230*v.n/mx+6,y:y+16.5,style:'fill:#e6edf7'},svg);c.textContent=v.n+'명';
+    const r=el('text',{class:'val',x:398,y:y+16.5,'text-anchor':'end'},svg);r.textContent=big(v.r)+'원';
+  });
+  $('#regTag').textContent=S.grade==='all'?'TOP 7':S.grade+' · TOP 7';
+}
+/* ---------- 연령 ---------- */
+function renderAge(){
+  const svg=$('#ageSvg');svg.innerHTML='';const f=F();
+  const m=BANDS.map(b=>({b,g:Object.fromEntries(GR.map(g=>[g,0])),t:0}));
+  f.forEach(d=>{const x=m[BANDS.indexOf(ageBand(d.age))];x.g[d.grade]++;x.t++});
+  const mx=Math.max(1,...m.map(x=>x.t)),H=170,y0=200,bw=44,gap=(400-BANDS.length*bw)/(BANDS.length+1);
+  [0,.5,1].forEach(p=>el('line',{x1:0,y1:y0-H*p,x2:400,y2:y0-H*p,stroke:'rgba(99,179,237,.09)','stroke-dasharray':p?'3 5':'0'},svg));
+  m.forEach((x,i)=>{
+    const bx=gap+i*(bw+gap);let acc=0;
+    GR.forEach(g=>{const h=H*x.g[g]/mx;if(!h)return;
+      const r=el('rect',{x:bx,y:y0-acc-0,width:bw,height:0,fill:GC[g],rx:3,opacity:.92},svg);
+      const yy=y0-acc-h;
+      setTimeout(()=>{r.style.transition='all .8s cubic-bezier(.2,.7,.2,1)';r.setAttribute('y',yy);r.setAttribute('height',h)},S.first?500+i*70:20);
+      acc+=h;});
+    const tt=el('text',{class:'val',x:bx+bw/2,y:y0-acc-6,'text-anchor':'middle',style:'fill:#e6edf7'},svg);tt.textContent=x.t;
+    const lb=el('text',{class:'lbl',x:bx+bw/2,y:y0+17,'text-anchor':'middle'},svg);lb.textContent=x.b;
+  });
+  if(S.grade==='all'){GR.forEach((g,i)=>{const lx=44+i*86;el('circle',{cx:lx,cy:232,r:4,fill:GC[g]},svg);const t=el('text',{class:'val',x:lx+9,y:235.5},svg);t.textContent=g;});}
+}
+
+/* ---------- 프로파일 표 ---------- */
+function renderProfile(){
+  const tb=$('#pt');
+  const rows=[
+    ['인원',a=>a.length+'명'],
+    ['평균 연령',a=>avg(a.map(d=>d.age)).toFixed(1)+'세'],
+    ['성별(남:여)',a=>a.filter(d=>d.sex==='남').length+':'+a.filter(d=>d.sex==='여').length],
+    ['평균 주문',a=>avg(a.map(d=>d.orders)).toFixed(1)+'회'],
+    ['평균 구매액',a=>man(avg(a.map(d=>d.spend)))],
+    ['평균 만족도',a=>avg(a.map(d=>d.sat)).toFixed(2)],
+    ['평균 미구매',a=>(avg(a.map(d=>d.rec))/30.4).toFixed(1)+'개월']];
+  let h='<thead><tr><th>지표</th>'+GR.map(g=>'<th class="'+(S.grade===g?'hl':'')+'" style="--gc:'+GC[g]+'"><i></i>'+(g==='이탈 위험'?'이탈':g)+'</th>').join('')+'</tr></thead><tbody>';
+  rows.forEach(([n,f])=>{h+='<tr><td>'+n+'</td>'+GR.map(g=>'<td class="'+(S.grade===g?'hl':'')+'">'+f(byG(g))+'</td>').join('')+'</tr>'});
+  tb.innerHTML=h+'</tbody>';
+}
+
+/* ---------- 만족도/리뷰 ---------- */
+function renderReviews(){
+  const f=F(),n=f.length,a=avg(f.map(d=>d.sat));
+  $('#revTag').textContent=S.grade==='all'?'전체':S.grade;
+  let h='<div class="satbig">'+a.toFixed(2)+'<small> / 5</small></div><div class="satstar">'+stars(Math.round(a))+'</div>';
+  for(let s=5;s>=1;s--){const c=f.filter(d=>d.sat===s).length;h+='<div class="sbar"><span>'+s+'</span><div><u data-w="'+(c/n*100*1.6)+'"></u></div><em>'+c+'</em></div>'}
+  $('#satbox').innerHTML=h;
+  $('#satbox').querySelectorAll('u').forEach((u,i)=>setTimeout(()=>u.style.width=Math.min(100,+u.dataset.w)+'%',S.first?500+i*60:20));
+  const pool=(S.sel?[D.find(d=>d.cid===S.sel)]:[]).concat(f.filter(d=>d.cid!==S.sel&&d.review).sort((x,y)=>y.last.localeCompare(x.last)));
+  // 다양성: 낮은 점수 1개 + 높은 점수 2개 우선
+  const low=pool.filter(d=>d.sat<=2).slice(0,1),hi=pool.filter(d=>d.sat>=4).slice(0,3);
+  let pick=S.sel?pool.slice(0,2):(S.grade==='이탈 위험'?pool.slice(0,2):low.concat(hi).slice(0,2));
+  if(pick.length<2)pick=pick.concat(pool.filter(d=>!pick.includes(d))).slice(0,2);
+  $('#revlist').innerHTML=pick.map((d,i)=>'<div class="rv" style="animation-delay:'+i*.07+'s"><div class="h"><b>'+esc(d.name)+'</b><span class="gchip" style="--gc:'+GC[d.grade]+';font-size:9px;padding:2px 6px">'+d.grade+'</span><span class="s">'+'★'.repeat(d.sat)+'</span><span style="margin-left:auto">'+d.last.slice(2).replace(/-/g,'.')+'</span></div><p>'+esc(d.review)+'</p></div>').join('');
+}
+
+/* ---------- 전략 ---------- */
+function gapInfo(){
+  const g=byG('우수');
+  return {o:avg(g.map(d=>Math.max(0,15-d.orders))).toFixed(1),m:man(avg(g.map(d=>Math.max(0,3e6-d.spend))))};
+}
+const STRAT={
+ 'VIP':{goal:'<b>목표</b> 핵심 고객의 충성도 강화 · 이탈 방지 (매출의 최대 비중)',acts:[['금전적','<b>누적 캐시백</b> 연 구매 500만원↑ 3~5% 환급 · 신상품 선공개 할인권'],['경험적','<b>프라이빗 쇼룸 초청</b> · 퍼스널 쇼퍼 서비스 · 한정판 선공개'],['정서적','<b>멤버십 키트 &amp; 기념일 케어</b> — 소속감과 인정 욕구 충족']]},
+ '우수':{goal:()=>{const g=gapInfo();return '<b>목표</b> VIP 승급 유도 · 평균 <b>'+g.o+'회 · '+g.m+'원</b> 추가 구매 시 승급'},acts:[['승급','<b>VIP 승급 진행률 안내</b> — “다음 주문 시 등급 상승” 알림'],['금전적','<b>2회 연속 구매 보너스 포인트</b> · 구간별 쿠폰'],['경험적','<b>신상품 얼리 액세스</b> · 후기 작성 우대']]},
+ '일반':{goal:'<b>목표</b> 첫 재구매 확보 · 구매 빈도 확대 (우수 등급 전환)',acts:[['금전적','<b>7일 내 재구매 쿠폰</b> (10%) · 무료배송 임계 안내'],['경험적','<b>관심 카테고리 큐레이션</b> 추천 · 장바구니 리마인드'],['정서적','<b>후기 작성 적립금</b> · 첫 구매 감사 메시지']]},
+ '이탈 위험':{goal:'<b>목표</b> Win-back — 180일↑ 미구매 · 과거 10회↑ 구매',acts:[],msg:{
+   emo:{t:'오랜만이에요, 보고 싶었어요',b:'그동안 함께한 시간을 기억하고 있어요. 돌아오시는 당신을 위해 작은 선물을 준비했어요.',c:'선물 확인하기',k:'감성적 접근 · 그리움·유대감'},
+   rat:{t:'지금 안 오시면 손해예요 (48시간 한정)',b:'휴면 고객 전용 30~40% 즉시 할인 쿠폰 + 보너스 포인트가 곧 소멸됩니다.',c:'48시간 한정 쿠폰 받기',k:'이성적 접근 · 긴급함·손실 회피'}}}
+};
+function renderStrategy(){
+  const box=$('#stbody'),g=S.st,s=STRAT[g],col=GC[g];
+  box.style.setProperty('--gc',col);
+  let h='<div class="sttabs">'+GR.map(x=>'<button class="'+(x===g?'on':'')+'" style="--gc:'+GC[x]+'" data-g="'+x+'">'+(x==='이탈 위험'?'이탈':x)+'</button>').join('')+'</div>';
+  const goal=typeof s.goal==='function'?s.goal():s.goal;
+  h+='<div class="goal">'+goal+' <span style="color:var(--dim)">('+byG(g).length+'명)</span></div>';
+  if(g==='이탈 위험'){
+    const m=s.msg[S.msg];
+    h+='<div class="msg"><div class="sw"><button data-m="emo" class="'+(S.msg==='emo'?'on':'')+'">버전 1 · 감성</button><button data-m="rat" class="'+(S.msg==='rat'?'on':'')+'">버전 2 · 이성</button><span>'+m.k+'</span></div>'+
+       '<div><b style="color:#fff">[제목]</b> '+m.t+'</div><div><b style="color:#fff">[본문]</b> '+m.b+'</div><span class="cta">'+m.c+'</span></div>';
+  }else{
+    h+='<div class="acts">'+s.acts.map(a=>'<div class="act"><em>'+a[0]+'</em><span>'+a[1]+'</span></div>').join('')+'</div>';
+  }
+  box.innerHTML=h;
+  box.querySelectorAll('.sttabs button').forEach(b=>b.onclick=()=>{S.st=b.dataset.g;renderStrategy()});
+  box.querySelectorAll('.sw button').forEach(b=>b.onclick=()=>{S.msg=b.dataset.m;renderStrategy()});
+}
+
+/* ---------- 푸터 티커 ---------- */
+function renderTicker(){
+  const rs=D.filter(d=>d.review).sort((a,b)=>b.last.localeCompare(a.last)).slice(0,28);
+  const one=rs.map(d=>'<span class="it" style="--gc:'+GC[d.grade]+'"><i></i><b>'+esc(d.name)+'</b><span class="s">'+'★'.repeat(d.sat)+'</span>'+esc(d.review)+'</span>').join('');
+  $('#track').innerHTML=one+one;
+}
+
+function initReport(){
+  const modal=$('#reportModal');
+  const open=()=>{modal.classList.add('open');modal.setAttribute('aria-hidden','false');$('#reportClose').focus()};
+  const close=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true');$('#reportLaunch').focus()};
+  $('#reportCustomerRows').innerHTML=D.map(d=>'<tr><td>'+esc(d.cid)+'</td><td>'+esc(d.name)+'</td><td><span class="grade-pill" style="--gc:'+GC[d.grade]+'">'+esc(d.grade)+'</span></td></tr>').join('');
+  $('#reportLaunch').addEventListener('click',open);$('#openFullReport').addEventListener('click',open);$('#reportClose').addEventListener('click',close);
+  $('#reportPrint').addEventListener('click',()=>window.print());
+  modal.addEventListener('click',e=>{if(e.target===modal)close()});
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))close()});
+  modal.querySelectorAll('.report-toc a').forEach(a=>a.addEventListener('click',()=>{modal.querySelectorAll('.report-toc a').forEach(x=>x.classList.remove('active'));a.classList.add('active')}));
+}
+
+/* ---------- 전체 ---------- */
+function renderAll(keepFirst){
+  renderSeg();renderKPI();renderDonut();renderList();renderScatter();renderRegion();renderAge();renderProfile();renderReviews();renderStrategy();
+  S.first=false;
+}
+function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);$('#stage').style.transform='translate(-50%,-50%) scale('+s+')'}
+function init(){
+  initProfile();initReport();renderTicker();addEventListener('resize',fit);fit();
+  $('#q').addEventListener('input',e=>{S.q=e.target.value;renderList()});
+  renderAll();
+}
+init();
+})();
+</script>
+</body>
+</html>
